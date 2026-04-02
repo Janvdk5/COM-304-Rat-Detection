@@ -1,1 +1,10 @@
 *.DS_Store
+/data/
+*.log
+*.tmp
+
+# anything dangerous for public repos
+*.env
+*.pem
+*.key
+
