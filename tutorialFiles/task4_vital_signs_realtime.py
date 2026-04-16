@@ -62,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument("--config",  action="store_true", help="True if you want to configure the radar from python.")
     args = parser.parse_args()
 
-    current_dir = os.getcwd()
+    current_dir = os.path.dirname(os.getcwd())
     # the path of your configuration script
     config_lua_script = f'{current_dir}/scripts/1843_config_streaming_task4.lua'
 
