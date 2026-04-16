@@ -12,3 +12,4 @@ utils/__pycache__/__init__.cpython-310.pyc
 utils/__pycache__/radar.cpython-310.pyc
 utils/__pycache__/read_com.cpython-310.pyc
 utils/__pycache__/utility.cpython-310.pyc
+*.pyc

@@ -64,7 +64,7 @@ def get_br_hr(summed_range_data, all_range_data, second_p):
     unwrapped_phase = np.unwrap(unwrapped_phase)
 
     # to dist
-    unwrapped_phase = unwrapped_phase * (3/785) / (2 * np.pi)
+    unwrapped_phase = unwrapped_phase * (3/385) / (2 * np.pi)   # FIXED previous : (3/785) / (2 * np.pi)
 
     # just brings the average down to 0 of the phase signal
     unwrapped_phase = unwrapped_phase - np.mean(unwrapped_phase)

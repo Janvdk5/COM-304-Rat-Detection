@@ -40,7 +40,7 @@ def rangefft(raw_data):
     # TODO: take the range fft on the raw_data, you should keep the output the same size as the input
     #fft_data = np.zeros(raw_data.shape)
 
-    fft_data = np.fft.fft(fft_data)
+    fft_data = np.fft.fft(fft_data,axis=-1)
 
     return fft_data # must be of size frames x tx x rx x samples per chirp (adc_samples)
 

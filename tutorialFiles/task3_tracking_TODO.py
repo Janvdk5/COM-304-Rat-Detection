@@ -57,6 +57,38 @@ def beamform_2d(beat_freq_data, radar_params, x_locs):
         The spherical power array after beamforming, with shape (num_phi, samples_per_chirp).
     """
 
+    ## Radar parameters
+    #lm = radar_params["lm"]
+    #
+    ## Get the azimuth angles and range indices
+    #phi = radar_params["phi"]
+    #num_phi = len(phi)
+    #r_idxs = radar_params["range_idx"]
+    #
+    ## Initialize the spherical power array 
+    #sph_pwr = np.zeros((num_phi, r_idxs.shape[0]), dtype=np.complex64)
+    #
+    ## TODO: compute array for phase shifts for angles  (size: phi x x_locs)
+    ## this is essentially calculating d_n * cos(phi) from the README
+    #angles = np.zeros((phi.shape[0], x_locs.shape[0]))
+    #for i, phi_val in enumerate(phi):
+    #    angles[i, :] = x_locs[:, 0] * np.cos(phi_val)
+    #
+    ## TODO: compute h_phi for each phase shift (size same as angles)
+    ## this is calculates the complex valued h_phi from the README
+    #steering_vec = np.zeros(angles.shape) 
+    #for i in range(angles.shape[0]):
+    #    for j in range(angles.shape[1]):
+    #        steering_vec[i, j] = np.exp(1j * 2 * np.pi/ lm * angles[i, j])
+    #
+    ## Apply the phase shifts to the beat frequency data and sum over the antennas
+    #for r, rval in enumerate(r_idxs):
+    #    beat = beat_freq_data[:, r]
+    #    beamformed_signal = beat[np.newaxis, :] * steering_vec
+    #    sph_pwr[:, r] = np.maximum(sph_pwr[:, r], np.abs(np.sum(beamformed_signal, axis=-1)))
+
+
+    
     # Radar parameters
     lm = radar_params["lm"]
 
@@ -70,16 +102,12 @@ def beamform_2d(beat_freq_data, radar_params, x_locs):
 
     # TODO: compute array for phase shifts for angles  (size: phi x x_locs)
     # this is essentially calculating d_n * cos(phi) from the README
-    angles = np.zeros((phi.shape[0], x_locs.shape[0]))
-    for i, phi_val in enumerate(phi):
-        angles[i, :] = x_locs[:, 0] * np.cos(phi_val)
+    angles = x_locs * np.cos(phi[:, np.newaxis])
 
     # TODO: compute h_phi for each phase shift (size same as angles)
     # this is calculates the complex valued h_phi from the README
-    steering_vec = np.zeros(angles.shape) 
-    for i in range(angles.shape[0]):
-        for j in range(angles.shape[1]):
-            steering_vec[i, j] = np.exp(1j * 2 * np.pi/ lm * angles[i, j])
+    #steering_vec = np.zeros(angles.shape) 
+    steering_vec = np.exp(1j*2*np.pi/lm * angles)
 
     # Apply the phase shifts to the beat frequency data and sum over the antennas
     for r, rval in enumerate(r_idxs):

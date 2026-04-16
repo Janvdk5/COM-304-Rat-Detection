@@ -9,7 +9,7 @@ import numpy as np
 import utils.utility as utility
 from streaming_base.streaming import realtime_streaming_task3 
 import argparse
-from utils.read_com import find_com_port, update_com_port_in_files 
+from utils.read_com import find_com_port#, update_com_port_in_files 
 
 '''
     The primary things to change in this file are paths to various locations on your computer (mainly inside this repo itself) at the bototm of this file.
