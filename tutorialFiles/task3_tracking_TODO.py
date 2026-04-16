@@ -2,6 +2,11 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
+
+sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
+
+
 import scipy
 import utils.save_adc_data as sd
 import utils.utility as utility

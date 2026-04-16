@@ -1,10 +1,15 @@
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
+
+
 from utils.radar import radar # this contains helper functions to interact with the radar from Python (after opening up mmWave studio)
 import numpy as np
 import utils.utility as utility
 from streaming_base.streaming import realtime_streaming_task3 
 import argparse
-from utils.read_com import find_com_port, update_com_port_in_file
-import os 
+from utils.read_com import find_com_port, update_com_port_in_files 
 
 '''
     The primary things to change in this file are paths to various locations on your computer (mainly inside this repo itself) at the bototm of this file.

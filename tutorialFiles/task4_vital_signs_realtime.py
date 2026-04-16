@@ -1,5 +1,10 @@
 from utils.radar import radar # this contains helper functions to interact with the radar from Python (after opening up mmWave studio)
 import numpy as np
+import sys
+
+sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
+
+
 import utils.utility as utility
 from streaming_base.streaming import realtime_streaming_task4
 import argparse

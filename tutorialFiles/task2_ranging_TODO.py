@@ -1,6 +1,10 @@
 import os
 import numpy as np
 import os
+import sys
+
+sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
+
 import utils.save_adc_data as sd
 import utils.utility as utility
 from utils.singlechip_raw_data_reader_example import TI_PROCESSOR
