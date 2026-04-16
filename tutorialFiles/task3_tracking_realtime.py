@@ -67,7 +67,7 @@ if __name__ == "__main__":
     parser.add_argument("--cfar", action="store_true", help="True if you want cfar.")
     args = parser.parse_args()
 
-    current_dir = os.getcwd()
+    current_dir = os.path.dirname(os.getcwd()) 
     config_lua_script = f'{current_dir}/scripts/1843_config_streaming_task3.lua'
     
     # this function reads the parameters from your lua config file (look at this function to see how it expects your config file to be formatted)
