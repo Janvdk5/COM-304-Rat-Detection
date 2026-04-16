@@ -25,6 +25,9 @@ def main(cfar_on):
 
     # Parameters for the range-azimuth beamforming
     r_idxs = np.arange(0, chirp_dict['samples_per_chirp'], 1)
+
+#    r_idxs = np.arange(0, 64, 1)
+
     phi = np.deg2rad(np.arange(0, 180, 1))
     width = 100 # azimuth width in degrees
 

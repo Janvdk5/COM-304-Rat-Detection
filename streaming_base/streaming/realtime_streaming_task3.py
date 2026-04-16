@@ -50,6 +50,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
             self.fig = plt.figure(figsize=(6, 6))
             self.ax = self.fig.add_subplot(111, projection='polar')
             self.ax.set_ylabel('')
+            # NOTE : CHANGED THIS TO PLOT ONLY RELEVANT RANGE -- self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)  
             self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)  
 
             self.last_frame_time = time.time()
@@ -69,7 +70,9 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
             num_ticks = 7
 
             # Pick evenly spaced radial ticks across your range bins
+            # NOTE : CHANGED THIS DO PLOT ONLY RELEVANT RANGE : 
             radial_bins = np.linspace(self.r_idxs.min(), self.r_idxs.max(), num_ticks)
+            # radial_bins = np.linspace(self.r_idxs.min(), 20, num_ticks) # NOTE : 20 BINS FOR CONFIG WITH ADC=256; SMPL RATE=5000; SLOPE=64.598
 
             # Convert them to meter labels (or whatever 0.04 means)
             radial_labels = [f"{rb * 0.045352603795783:.2f}" for rb in radial_bins]
