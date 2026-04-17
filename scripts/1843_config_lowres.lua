@@ -18,26 +18,24 @@ NUM_RX = 4
 START_FREQ = 77 -- GHz
 -- IDLE_TIME: time between subsequent chirps (check RampTimingCalculator in mmWave Studio 
 -- to calculate different values (dependent on FREQ_SLOP, ADC_SAMPLES, and SAMPLE_RATE))
-IDLE_TIME = 7 -- us
+IDLE_TIME = 3.5 -- us
 -- RAMP_END_TIME: length of the entire frequency sweep (check RampTimingCalculator in mmWave 
 -- Studio to calculate different values (dependent on FREQ_SLOP, ADC_SAMPLES, and SAMPLE_RATE))
-RAMP_END_TIME = 61.89 -- us
--- ADC_START_TIME: time that samples start to be taken (check RampTimingCalculator in mmWave 
--- Studio to calculate different values (dependent on FREQ_SLOP, ADC_SAMPLES, and SAMPLE_RATE))
-ADC_START_TIME = 8.66 --usn
+ADC_START_TIME = 4.8 --usn
 -- FREQ_SLOPE: slope of the frequency sweep in the FMCW chirp, changing this along with 
 -- ADC_SAMPLES and SAMPLE_RATE will affect the bandwidth
-FREQ_SLOPE = 64.598 -- MHz/us
+RAMP_END_TIME = 34.36 -- us
+-- ADC_START_TIME: time that samples start to be taken (check RampTimingCalculator in mmWave 
+-- Studio to calculate different values (dependent on FREQ_SLOP, ADC_SAMPLES, and SAMPLE_RATE))
+FREQ_SLOPE = 29.982 -- MHz/us
 -- ADC_SAMPLES: number of samples we want to take (ex. when taking range FFT, this translates 
 -- to number of range bins we get), changing this along with FREQ_SLOPE and SAMPLE_RATE will affect the bandwidth
-ADC_SAMPLES = 128
+ADC_SAMPLES = 128 
 -- SAMPLE_RATE: sample rate for ADC_SAMPLES, changing this along with ADC_SAMPLES and 
 -- FREQ_SLOPE will affect the bandwidth
-SAMPLE_RATE = 2500 -- ksps
+SAMPLE_RATE = 4500 -- ksps
 -- RX_GAIN: reciever gain
 RX_GAIN = 30 -- dB
-
--- ChirpConfig
 
 -- FrameConfig
 -- START_CHIRP_TX: index of the first chirp
@@ -45,11 +43,11 @@ START_CHIRP_TX = 0
 -- END_CHIRP_TX: index of the last chirp (dependent on number of transmitters)
 END_CHIRP_TX = NUM_TX-1 
 -- number of subsequent chirps for each transmitter to repeat (check Programming 
--- Chirp Parameters in TI Radar Devices for more details)
-CHIRP_LOOPS = 1
+-- Chirp Parameters in TI Radar Devices for more details) This is primarily for Doppler.
+CHIRP_LOOPS = 1   
 -- NUM_FRAMES: number of frames you are collecting (each frame consists of each of the
 -- trasmitter chirps as well as amount of chirp loops per transmitter chirp)
-NUM_FRAMES = 1000 -- 0 sets it to continous streaming!
+NUM_FRAMES = 20
 -- PERIODICITY: period of each frame (aka, time between each set of (tx chirps and all of their chirp loops))
 PERIODICITY = 20 -- ms 
 -----------------------------------------------------------
@@ -85,7 +83,7 @@ ar1.RfInit()
 -------- DATA CONFIG STUFF (static for 1843) --------
 ar1.DataPathConfig(1, 1, 0)
 ar1.LvdsClkConfig(1, 1)
-ar1.LVDSLaneConfig(0, 1, 1, 1, 1, 1, 0, 0)
+ar1.LVDSLaneConfig(0, 1, 1, 0, 0, 1, 0, 0)
 ---------------------------------------------
 
 -------- SENSOR CONFIG STUFF --------

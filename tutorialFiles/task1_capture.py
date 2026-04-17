@@ -1,5 +1,5 @@
 import os
-import 
+import argparse
 
 import sys
 sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
@@ -27,7 +27,7 @@ def parse_args():
 # Main function
 def main(args):
     # change this to the path to location to save data if you want it somewhere else
-    exp_path = f'{current_dir}\data' # path to the data folder or wherever you want to save data 
+    exp_path = f'{current_dir}/data' # path to the data folder or wherever you want to save data 
 
     # path to the lua scripts for recording it in is the home dir(eg. scripts/1843_record.lua)
     # should be the same always
