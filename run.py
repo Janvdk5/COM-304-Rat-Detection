@@ -54,6 +54,9 @@ def main(args):
     # temp file
     mmwave_dict, setup_dict, mmwave_filename, setup_filename = sd.process_json_files(json_filename, chirp_dict, exp_path, args.exp_name)
 
+    print("Reading raw data from: ", mmwave_filename)
+    print("Using setup file: ", setup_filename)
+    
     adc_data = processor.rawDataReader(setup_dict, mmwave_dict, os.path.join(exp_path, args.exp_name), 'tmp_rdc.mat')
     adc_data = np.stack(adc_data, axis=-1)
     adc_data = np.reshape(adc_data, (adc_data.shape[0], adc_data.shape[1], adc_data.shape[2], adc_data.shape[3]))

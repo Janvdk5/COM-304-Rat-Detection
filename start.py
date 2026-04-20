@@ -8,9 +8,8 @@ import time
 # PARAMS ----------------------------------------
 ENV_NAME = "comm-proj"  
 TASK_NAME = "run"
-CONFIG_FILE = "scripts/1843_config"
-CONFIG_FILE = "-- config"
-TEST_NAME = "test1"  # output data fil
+CONFIG_FILE = "scripts/1843_config.lua"
+TEST_NAME = "test"  # output data fil
 EXTRA_FLAGS = ""  
 
 
@@ -58,7 +57,7 @@ def main():
         sys.exit(1)
 
     run_command(f"conda activate {ENV_NAME}", "Activating Conda Environment")
-    run_mmwave_studio()
+    #run_mmwave_studio()
     run_command("python configure.py", "Running config")
     run_command(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {TEST_NAME} {EXTRA_FLAGS}", "Starting Capture Task")
 
