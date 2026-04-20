@@ -42,7 +42,7 @@ def run_mmwave_studio():
 
     # Launch fresh instance
     if os.path.exists(studio_path):
-        print("[#] Launching a fresh instance of mmWave Studio...")
+        print("Launching a fresh instance of mmWave Studio...")
         subprocess.Popen([studio_path], cwd=studio_dir, shell=True)
 
         print("Waiting 10 seconds for initialization...")
