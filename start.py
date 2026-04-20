@@ -9,6 +9,7 @@ import time
 TASK_NAME = "run"
 CONFIG_FILE = "scripts/1843_config"
 TEST_NAME = "test1"  # output data fil
+EXTRA_FLAGS = ""  
 
 
 # FUNCTIONS -------------------------------------
@@ -57,9 +58,9 @@ def main():
 
     run_mmwave_studio()
     run_command("python configure.py", "Running config")
-    
+
     print("\nSetup Complete. Starting Capture Task")
-    os.system(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {TEST_NAME}")
+    os.system(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {TEST_NAME} {EXTRA_FLAGS}")
 
 if __name__ == "__main__":
     main()
