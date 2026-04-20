@@ -1,7 +1,7 @@
 -- Radar Settings (Original)
 -- 3 Tx 4 Rx | complex 1x
 --------------------------------------------------------------
-COM_PORT = 7
+COM_PORT = 8
 RADARSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
 MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
 
@@ -23,23 +23,23 @@ IDLE_TIME = 7 -- 2 -- 3.5 -- 7 -- us
 
 -- RAMP_END_TIME: length of the entire frequency sweep (check RampTimingCalculator in mmWave 
 -- Studio to calculate different values (dependent on FREQ_SLOP, ADC_SAMPLES, and SAMPLE_RATE))
-RAMP_END_TIME = 58.22 -- 13.42 --19.82 -- 61.89 -- us
+RAMP_END_TIME = 63.99 -- 58.22 -- 13.42 --19.82 -- 61.89 -- us
 
 -- ADC_START_TIME: time that samples start to be taken (check RampTimingCalculator in mmWave 
 -- Studio to calculate different values (dependent on FREQ_SLOP, ADC_SAMPLES, and SAMPLE_RATE))
-ADC_START_TIME = 5.99 -- 5.99 -- 8.66 --usn
+ADC_START_TIME = 9.02 -- 5.99 -- 5.99 -- 8.66 --usn
 
 -- FREQ_SLOPE: slope of the frequency sweep in the FMCW chirp, changing this along with 
 -- ADC_SAMPLES and SAMPLE_RATE will affect the bandwidth
-FREQ_SLOPE = 64.598 -- MHz/us
+FREQ_SLOPE = 62.474 -- 64.598 -- MHz/us
 
 -- ADC_SAMPLES: number of samples we want to take (ex. when taking range FFT, this translates 
 -- to number of range bins we get), changing this along with FREQ_SLOPE and SAMPLE_RATE will affect the bandwidth
-ADC_SAMPLES = 256 -- 32 -- 128
+ADC_SAMPLES = 128 -- 256 -- 32 -- 128
 
 -- SAMPLE_RATE: sample rate for ADC_SAMPLES, changing this along with ADC_SAMPLES and 
 -- FREQ_SLOPE will affect the bandwidth
-SAMPLE_RATE = 5000 --2500 -- ksps
+SAMPLE_RATE = 2420 -- 5000 --2500 -- ksps
 
 -- RX_GAIN: reciever gain
 RX_GAIN = 30 -- dB
