@@ -6,6 +6,7 @@ import os
 import time
 
 # PARAMS ----------------------------------------
+ENV_NAME = "comm-proj"  
 TASK_NAME = "run"
 CONFIG_FILE = "scripts/1843_config"
 TEST_NAME = "test1"  # output data fil
@@ -45,8 +46,8 @@ def run_mmwave_studio():
         print("Launching a fresh instance of mmWave Studio...")
         subprocess.Popen([studio_path], cwd=studio_dir, shell=True)
 
-        print("Waiting 10 seconds for initialization...")
-        time.sleep(10)
+        print("Waiting 5 seconds for initialization...")
+        time.sleep(5)
     else:
         print(f"Error: Path not found: {studio_path}")
 
@@ -55,10 +56,9 @@ def main():
         print("ERROR: This script MUST be run as Administrator.")
         sys.exit(1)
 
-
+    run_command(f"conda activate {ENV_NAME}", "Activating Conda Environment")
     run_mmwave_studio()
     run_command("python configure.py", "Running config")
-
     run_command(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {TEST_NAME} {EXTRA_FLAGS}", "Starting Capture Task")
 
 if __name__ == "__main__":

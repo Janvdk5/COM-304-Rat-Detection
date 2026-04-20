@@ -3,7 +3,7 @@ from scipy.signal import convolve2d
 from scipy.ndimage import median_filter
 
 from sklearn.cluster import DBSCAN
-from gtrack.config import Detection
+from streaming_base.gtrack.config import Detection
 
 # implement this function to accumulate the time domain data 
 def get_accumulated_time_data(current_range_data, range_fft_s):

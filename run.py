@@ -11,7 +11,9 @@ from utils.singlechip_raw_data_reader_example import TI_PROCESSOR
 
 from streaming_base.processing.processing import process_frame_2d
 from streaming_base.utils.utils import get_ant_pos_2d
-from streaming_base.processing.processing import rangefft, beamform_2d, cfar_2d
+from streaming_base.processing.processing import rangefft, beamform_2d, cfar_ca_2d
+
+#sys.path.append(os.path.dirname(os.getcwd()))
 
 '''
     The primary things to change in this file are paths to various locations on your computer (mainly inside this repo itself)
@@ -20,7 +22,7 @@ from streaming_base.processing.processing import rangefft, beamform_2d, cfar_2d
     Goal of this task: debug your beamforming code.
 '''
 
-current_dir = os.path.dirname(os.getcwd()) # one level up for this repo
+current_dir = (os.getcwd()) # one level up for this repo
 
 
 def parse_args():
