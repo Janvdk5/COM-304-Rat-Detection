@@ -266,3 +266,81 @@ def compute_dbscan(output_top, r_idxs, phi, eps=0.5, min_samples=5, p_treshold= 
     db = DBSCAN(eps = 0.5, min_samples=min_samples).fit(points_thresh)
 
     return db
+
+
+def rangefft(raw_data):
+    """
+    Performs a range FFT on the raw data.
+
+    Parameters
+    ----------
+    raw_data : np.ndarray
+        The raw data from FMCW radar. (Size: frames x tx x rx x samples per chirp (adc_samples))
+
+    Returns
+    -------
+    fft_data : np.ndarray
+        The range fft (Note: keep the output of the same size as the input.) 
+    """
+    # TODO: take the range fft on the raw_data, you should keep the output the same size as the input
+    #fft_data = np.zeros(raw_data.shape)
+
+    fft_data = np.fft.fft(fft_data,axis=-1)
+
+    return fft_data # must be of size frames x tx x rx x samples per chirp (adc_samples)
+
+
+def beamform_2d(beat_freq_data, radar_params, x_locs):
+    """
+    Performs 2D beamforming along the azimuth (horizontal) dimension, this results in a bird eye view image.
+
+    Parameters
+    ----------
+    beat_freq_data : np.ndarray
+        The beat frequency data, typically a 3D array.
+    phi_s : float
+        The starting azimuth angle in degrees.
+    phi_e : float
+        The ending azimuth angle in degrees.
+    phi_res : float
+        The azimuth angle resolution in degrees.
+    x_locs : np.ndarray
+        The x-coordinates of the antennas.
+    r_idxs : np.ndarray
+        The range indices corresponding to the beat frequency data.
+    radar_params : dict
+        A dictionary containing radar parameters such as sample rate, number of range samples, etc. 
+
+    Returns
+    -------
+    sph_pwr : np.ndarray
+        The spherical power array after beamforming, with shape (num_phi, samples_per_chirp).
+    """
+
+    # Radar parameters
+    lm = radar_params["lm"]
+
+    # Get the azimuth angles and range indices
+    phi = radar_params["phi"]
+    num_phi = len(phi)
+    r_idxs = radar_params["range_idx"]
+
+    # Initialize the spherical power array 
+    sph_pwr = np.zeros((num_phi, r_idxs.shape[0]), dtype=np.complex64)
+
+    # TODO: compute array for phase shifts for angles  (size: phi x x_locs)
+    # this is essentially calculating d_n * cos(phi) from the README
+    angles = x_locs * np.cos(phi[:, np.newaxis])
+
+    # TODO: compute h_phi for each phase shift (size same as angles)
+    # this is calculates the complex valued h_phi from the README
+    #steering_vec = np.zeros(angles.shape) 
+    steering_vec = np.exp(1j*2*np.pi/lm * angles)
+
+    # Apply the phase shifts to the beat frequency data and sum over the antennas
+    for r, rval in enumerate(r_idxs):
+        beat = beat_freq_data[:, r]
+        beamformed_signal = beat[np.newaxis, :] * steering_vec
+        sph_pwr[:, r] = np.maximum(sph_pwr[:, r], np.abs(np.sum(beamformed_signal, axis=-1)))
+
+    return sph_pwr
