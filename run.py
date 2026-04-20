@@ -13,8 +13,6 @@ from streaming_base.processing.processing import process_frame_2d
 from streaming_base.utils.utils import get_ant_pos_2d
 from streaming_base.processing.processing import rangefft, beamform_2d, cfar_ca_2d
 
-#sys.path.append(os.path.dirname(os.getcwd()))
-
 '''
     The primary things to change in this file are paths to various locations on your computer (mainly inside this repo itself)
     Technically, you do not have to change anything this this file other thatn those paths (so that we can extract chirp parameters correctly and so on).
@@ -22,7 +20,7 @@ from streaming_base.processing.processing import rangefft, beamform_2d, cfar_ca_
     Goal of this task: debug your beamforming code.
 '''
 
-current_dir = (os.getcwd()) # one level up for this repo
+current_dir = (os.getcwd())
 
 
 def parse_args():

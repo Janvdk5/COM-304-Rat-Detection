@@ -9,6 +9,7 @@ import time
 ENV_NAME = "comm-proj"  
 TASK_NAME = "run"
 CONFIG_FILE = "scripts/1843_config"
+CONFIG_FILE = "-- config"
 TEST_NAME = "test1"  # output data fil
 EXTRA_FLAGS = ""  
 
