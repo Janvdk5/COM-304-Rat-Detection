@@ -8,4 +8,11 @@ dependencies:
   - matplotlib
   - tensorflow
   - ipykernel
+  - scikit-learn
+  - natsort
+  - argparse
+  - logging
+  - statistics
+  - seaborn
+  
 prefix: /Users/shanbhag/anaconda3/envs/comm-proj
