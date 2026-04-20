@@ -59,8 +59,7 @@ def main():
     run_mmwave_studio()
     run_command("python configure.py", "Running config")
 
-    print("\nSetup Complete. Starting Capture Task")
-    os.system(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {TEST_NAME} {EXTRA_FLAGS}")
+    run_command(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {TEST_NAME} {EXTRA_FLAGS}", "Starting Capture Task")
 
 if __name__ == "__main__":
     main()
