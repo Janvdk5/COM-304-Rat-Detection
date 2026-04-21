@@ -96,7 +96,7 @@
                     "txPhaseShifter": "0x0",
                     "freqSlopeConst_MHz_usec": 70.1500015258789,
                     "txStartTime_usec": 0,
-                    "numAdcSamples": 128,
+                    "numAdcSamples": 512,
                     "digOutSampleRate": 10000,
                     "hpfCornerFreq1": 0,
                     "hpfCornerFreq2": 0,
