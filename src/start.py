@@ -24,9 +24,10 @@ scripts = {"task3": "scripts/1843_config_debug_task3",
            "highrange": "scripts/1843_config_highrange",
            "lowrange": "scripts/1843_config_lowrange"}
 
+tasks = ["process", "realtime"]
 
 ENV_NAME = "comm-proj"  
-TASK_NAME = "realtime"           # process (review old data), realtime (stream live data)
+TASK_NAME = tasks[1]           # 0: process (old data), 1: realtime (stream live data)
 CONFIG_FILE = scripts["task3_realtime"]  # use dict above to select config
 TEST_NAME = "task3_gt"          # output data file
 EXTRA_FLAGS = ""  

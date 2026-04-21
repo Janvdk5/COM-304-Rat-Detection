@@ -20,10 +20,10 @@
     },
     "capturedFiles": {
         "numFilesCollected": 1,
-        "fileBasePath": "D:/GitHub/COM-304-Rat-Detection\\data",
+        "fileBasePath": "D:/GitHub/COM-304-Rat-Detection\\data/rat-data/20-4-26/rat-raw",
         "files": {
-            "rawFileName": "task3_gt_Raw_0.bin",
-            "processedFileName": "task3_gt_Raw_0.bin",
+            "rawFileName": "highres_rat_setup-michael_take-1_fs-2420_slp-62-474_N-128_Raw_0.bin",
+            "processedFileName": "highres_rat_setup-michael_take-1_fs-2420_slp-62-474_N-128_Raw_0.bin",
             "processedFileSummary": {
                 "numZeroFillBytes": 0
             }
