@@ -1,8 +1,8 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 import sys
+import argparse
 sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
 
 
@@ -11,9 +11,9 @@ import scipy.io as sio
 import utils.save_adc_data as sd
 import utils.utility as utility
 from utils.singlechip_raw_data_reader_example import TI_PROCESSOR
-# from task4_vital_signs_TODO_old import get_br_hr, get_freq 
-from task2_ranging_TODO import rangefft
-import argparse
+#from old.task4_vital_signs_TODO_old import get_br_hr, get_freq 
+from old.task2_ranging_TODO import rangefft
+
 '''
     The primary things to change in this file are paths to various locations on your computer (mainly inside this repo itself)
     Technically, you do not have to change anything this this file other that those paths (so that we can extract chirp parameters correctly and so on).

@@ -18,6 +18,8 @@ from streaming_base.processing.processing import rangefft, beamform_2d, cfar_ca_
     Technically, you do not have to change anything this this file other thatn those paths (so that we can extract chirp parameters correctly and so on).
     This file is for DEBUGGING your function: beamform_2d.
     Goal of this task: debug your beamforming code.
+
+    This is a version of Task3_ tracking_TODO
 '''
 
 current_dir = (os.getcwd())
@@ -56,6 +58,13 @@ def main(args):
 
     print("Reading raw data from: ", mmwave_filename)
     print("Using setup file: ", setup_filename)
+
+    # if file doesnt exist, notify user and run the capture script to capture data
+    if not os.path.exists(mmwave_filename):
+        print(f"ERROR: Data file not found at {mmwave_filename}")
+        print("Please run the capture script to capture data before running this debug script.")
+        return
+        
 
     adc_data = processor.rawDataReader(setup_dict, mmwave_dict, os.path.join(exp_path, args.exp_name), 'tmp_rdc.mat')
     adc_data = np.stack(adc_data, axis=-1)
