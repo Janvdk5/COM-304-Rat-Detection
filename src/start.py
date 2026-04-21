@@ -26,11 +26,11 @@ scripts = {"task3": "scripts/1843_config_debug_task3",
 
 tasks = ["process", "realtime"]
 
-ENV_NAME = "comm-proj"  
-TASK_NAME = tasks[1]           # 0: process (old data), 1: realtime (stream live data)
-CONFIG_FILE = scripts["task3_realtime"]  # use dict above to select config
-TEST_NAME = "task3_gt"          # output data file
-EXTRA_FLAGS = ""  
+ENV_NAME    =   "radar310"  
+TASK_NAME   =   tasks[0]    # 0: process (old data), 1: realtime (stream live data)
+CONFIG_FILE =   scripts["task3"]     # use dict above to select config
+TEST_NAME   =   "task3_gt"  # output data file
+EXTRA_FLAGS =   ""  
 
 
 # FUNCTIONS -------------------------------------
@@ -51,8 +51,8 @@ def run_command(command, description):
     
 def run_mmwave_studio():
     process_name = "mmWaveStudio.exe"
-    studio_path = r"C:\ti\mmwave_studio_02_01_01_00\mmWaveStudio\RunTime\mmWaveStudio.exe"
-    studio_dir = r"C:\ti\mmwave_studio_02_01_01_00\mmWaveStudio\RunTime"
+    studio_path  = r"C:\ti\mmwave_studio_02_01_01_00\mmWaveStudio\RunTime\mmWaveStudio.exe"
+    studio_dir   = r"C:\ti\mmwave_studio_02_01_01_00\mmWaveStudio\RunTime"
 
     # Kill any existing instances
     print(f" Checking for existing {process_name}...")

@@ -1,7 +1,8 @@
 # top-level: only safe, non-GUI imports
 import time
 import numpy as np
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Event
+import os
 
 # import the producer (should not import GUI libs)
 from streaming_base.streaming.prod_dca import producer_real_time_1843
@@ -10,7 +11,7 @@ from streaming_base.streaming.prod_dca import producer_real_time_1843
 # Visualization code is moved into a function so it is only imported/run
 # in the main process (no GUI imports at module top-level)
 # -------------------------
-def run_visualization(q1, cfg_radar, cfg_cfar):
+def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
     # GUI imports done here (main process only)
     import warnings
     warnings.simplefilter("ignore", UserWarning)
@@ -21,6 +22,10 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
 
     import matplotlib
     matplotlib.use('Qt5Agg')
+    matplotlib.rcParams['toolbar'] = 'None'         #  NOTE : DISABLE TOOL BAR (saving fig crashes run-time sinc frame gets refreshed rapidly)
+
+    from matplotlib.animation import FFMpegWriter   #  NOTE : TO RECORD VISUALISATION
+
     import matplotlib.pyplot as plt
     plt.style.use('seaborn-v0_8-dark')
 
@@ -38,7 +43,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
 
 
     class MyApp(ShowBase):
-        def __init__(self, queue_1, cfg_radar):
+        def __init__(self, queue_1, cfg_radar, stop_event):
             ShowBase.__init__(self)
             self.q1 = queue_1
             self.latest_msg = {}
@@ -50,8 +55,38 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
             self.fig = plt.figure(figsize=(6, 6))
             self.ax = self.fig.add_subplot(111, projection='polar')
             self.ax.set_ylabel('')
-            # NOTE : CHANGED THIS TO PLOT ONLY RELEVANT RANGE -- self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)  
             self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)  
+
+
+            #   ----------------------------------------------------------------
+            #
+            #   NOTE : (kerim -- 4/21/2026)
+            #   
+            #       -- added these to handle stop event nicely in visualisation.
+            #
+
+            self.stop_event = stop_event
+            self.is_closing = False
+
+            self.fig.canvas.mpl_connect('close_event', self.on_close)
+            self.accept('escape', self.request_shutdown)   # optional: press Esc to stop cleanly
+
+            self.record_video = True        # NOTE : True to save video, False otherwise
+            self.video_writer = None        # NOTE : Video "Recorder" Instance
+
+            if self.record_video:
+
+                # make sure directory in which we save videos exists within main dir
+                os.makedirs("videos", exist_ok=True)
+
+                file_name = f"beamforming_live_{cfg_radar['exp_name']}.mp4"
+
+                self.video_writer = FFMpegWriter(fps=10, bitrate=1800)
+                self.video_writer.setup(self.fig, os.path.join("videos", file_name), dpi=120)
+                print("Video recording started.")
+
+            #   ----------------------------------------------------------------
+
 
             self.last_frame_time = time.time()
             self.frame_counter = 0
@@ -70,18 +105,61 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
             num_ticks = 7
 
             # Pick evenly spaced radial ticks across your range bins
-            # NOTE : CHANGED THIS DO PLOT ONLY RELEVANT RANGE : 
             radial_bins = np.linspace(self.r_idxs.min(), self.r_idxs.max(), num_ticks)
-            # radial_bins = np.linspace(self.r_idxs.min(), 20, num_ticks) # NOTE : 20 BINS FOR CONFIG WITH ADC=256; SMPL RATE=5000; SLOPE=64.598
 
             # Convert them to meter labels (or whatever 0.04 means)
-            radial_labels = [f"{rb * 0.045352603795783:.2f}" for rb in radial_bins]
+            #radial_labels = [f"{rb * 0.045352603795783:.2f}" for rb in radial_bins]
+            radial_labels = [f"{rb * cfg_radar['range_res']:.2f}" for rb in radial_bins]
+
 
             # Apply ticks to the polar axis
             self.ax.set_rticks(radial_bins)
             self.ax.set_yticklabels(radial_labels)
 
+
+        # HELPERS -------------------------------------------------------------------------
+
+        def request_shutdown(self, event=None):
+            """
+            Handles ongoing visualisation/video recording tasks termination.
+            """
+            if self.is_closing:
+                return
+
+            self.is_closing = True
+            print("Visualization closing, stopping producer...")
+            self.stop_event.set()
+
+            try:
+                import matplotlib.pyplot as plt
+                plt.ion()                           # NOTE : turns on interactive mode (create/show/update it as the program runs )
+                plt.close(self.fig)
+            except Exception:
+                pass
+
+            
+            # Make sure to properly handle video file that is being recorded
+            if self.video_writer is not None:
+                self.video_writer.finish()
+                self.video_writer = None
+                print("Video recording saved.")
+
+            # Shut down Panda3D so app.run() can return
+            self.destroy()
+
+
+        def on_close(self, event):
+            self.request_shutdown()
+
+
         def updateTask(self, task):
+            """
+            Updates visualiser to newly acquired frame. Also handles video recording (of the real time data visualiser).
+            """
+
+            if self.stop_event.is_set():
+                return Task.done
+
             # NOTE: single queue, so don't enumerate tuples — just use it
             try:
                 q = self.q1
@@ -132,7 +210,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
                 to_plot /= mx 
                 to_plot = to_plot
 
-                self.im.set_array(to_plot.ravel()) 
+                # self.im.set_array(to_plot.ravel()) 
 
                 # # FPS update
                 # current_time = time.time()
@@ -141,16 +219,29 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
                 #     self.fps = self.frame_counter / (current_time - self.last_fps_time)
                 #     self.last_fps_time = current_time
                 #     self.frame_counter = 0
- 
+
+
+                self.im.set_array(to_plot.ravel())
+                
                 self.fig.canvas.draw_idle() 
                 QtWidgets.QApplication.processEvents()
+
+
+                # grabs the current displayed frame (from the visualiser) and appends it to the video recording
+                # (note to self : check the doc of '.grab_frame()')
+                if self.video_writer is not None:
+                    self.video_writer.grab_frame()
+ 
                 self.msg_count.clear()
                 plt.pause(0.001)
 
-            return Task.cont
+            return Task.cont        
+
+        # -------------------------------------------------------------------------
+
 
     # instantiate and run (this stays in the main process)
-    app = MyApp(q1, cfg_radar)
+    app = MyApp(q1, cfg_radar, stop_event)
     app.run()
 
 
@@ -159,24 +250,83 @@ def run_visualization(q1, cfg_radar, cfg_cfar):
 # -------------------------
 def main(cfg_radar, cfg_cfar):
     q_main_1 = Queue(maxsize=1)
+    stop_event = Event()
+
+
+    #   ----------------------------------------------------------------
+    #
+    #   NOTE : (kerim -- 4/21/2026)
+    #
+    #           -- Changed the 'daemon=True' to 'False'.
+    #           -- Python doc indicates that daemonic child processes are terminated when the parent exits, 
+    #           -- and terminate() on Windows uses TerminateProcess(), which does not run finally blocks or exit handlers
+    #
+    #   NOTE :  in previous setting, Windows/native-runtime behavior, Ctrl+C is causing a lower-level abort (forrtl: error (200)) 
+    #           -- before Python reaches that except
+    #
 
     producer = Process(
         target=producer_real_time_1843,
-        args=(q_main_1, cfg_radar, cfg_cfar, 4096, 4098, "192.168.33.30", "192.168.33.180"),
-        daemon=True
+        args=(q_main_1, cfg_radar, cfg_cfar, 4096, 4098, "192.168.33.30", "192.168.33.180", stop_event),
+        daemon=False
     )
+
+
+
+
     producer.start()
     print("Producer started, launching visualization in main process...")
 
+
+
+    #   ----------------------------------------------------------------
+    #
+    #   NOTE : apparently, trying to handle Ctrl+C is not great on windows, 
+    #          the final approach to "properly" close the program during runtime was to 
+    #          do trigger termination when user exists real-time visualiser (close tab).
+    #
+    #   
+    #   NOTE : (kerim -- 4/21/2026)
+    #           -- closing the plot window becomes the normal shutdown path
+    #
+    #           -- CHANGED THIS PART TO HANDLE KEYBOARD INTERRUPT CORRECTLY 
+    #           -- (so that file in which we save data closes correctly)
+    #   IDEA : main process responsible for shutdown (instead of child-process trying to catch Ctrl-C Interrupt)
+    #           -- python doc says 'terminate()' does not run 'finally:' blocks !
+    #          goal : let 'stop_event' terminate child process first and only force-terminate as fallback 
+    #
+
     # run visualization (no GUI imports in child process)
-    run_visualization(q_main_1, cfg_radar, cfg_cfar)
+    # run_visualization(q_main_1, cfg_radar, cfg_cfar)
 
     # if run_visualization ever returns, do cleanup
+    # try:
+    #     while True:
+    #         time.sleep(1)
+    # except KeyboardInterrupt:
+    #     producer.terminate()
+    #     producer.join()
+    #     print("Shutdown complete.")
+
+
     try:
-        while True:
-            time.sleep(1)
+        run_visualization(q_main_1, cfg_radar, cfg_cfar, stop_event)
+
     except KeyboardInterrupt:
-        producer.terminate()
-        producer.join()
+        print("Main interrupted, stopping producer...")
+        stop_event.set()
+
+    finally:
+        stop_event.set()
+        producer.join(timeout=5)
+
+        if producer.is_alive():
+            print("Producer did not stop in time, forcing termination...")
+            producer.terminate()
+            producer.join()
+
         print("Shutdown complete.")
 
+    #   
+    #   -----------------------------------------------
+    #   -----------------------------------------------

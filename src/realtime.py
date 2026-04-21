@@ -22,7 +22,7 @@ from streaming_base.streaming import realtime_streaming_task3
 
 current_dir = (os.path.dirname(os.getcwd())) # one level up for this repo
 
-def main(cfar_on):
+def main(cfar_on, exp_name="test", save_raw_dt=False):
     """
     Main function to start the real-time radar streaming and processing.
     """
@@ -30,7 +30,7 @@ def main(cfar_on):
     # Parameters for the range-azimuth beamforming
     r_idxs = np.arange(0, chirp_dict['samples_per_chirp'], 1)
 
-#    r_idxs = np.arange(0, 64, 1)
+    # r_idxs = np.arange(0, 64, 1)
 
     phi = np.deg2rad(np.arange(0, 180, 1))
     width = 100 # azimuth width in degrees
@@ -48,8 +48,13 @@ def main(cfar_on):
         "sample_rate": chirp_dict['sample_rate'],
         "c": 3e8,
         "lm": 3e8 / 77e9,
-        "slope": chirp_dict['sample_rate']
+        "slope": chirp_dict['slope'],
+        "range_res": chirp_dict['range_res'],           # NOTE : I ADDED THIS -- 4/20/2026 - KERIM
+        "save_raw_dt": save_raw_dt,
+        "exp_name": exp_name,
+        "exp_path": os.path.join(current_dir, "data")   # NOTE : Data Directory Path (for specified experiment file)
     }
+
     # Parameters for CFAR
     cfg_cfar = {
         "cfar_on": cfar_on,
@@ -67,12 +72,19 @@ def main(cfar_on):
     realtime_streaming_task3.main(cfg_radar, cfg_cfar)
 
 if __name__ == "__main__":
-    
+
+
+    #   PARSER --------------------------------------------------------------------------------------------------------
     parser = argparse.ArgumentParser(description="Example script with command line arguments.")
+
     # Add arguments
     parser.add_argument("--config",  action="store_true", help="True if you want to configure the radar from python.")
     parser.add_argument("--cfar", action="store_true", help="True if you want cfar.")
+    parser.add_argument("--save_raw_dt", action="store_true", help="True if you want to save the real-time captured raw data to 'data/<exp_name>_Raw_0.bin'.")
+    parser.add_argument("--exp_name", type=str, default="test", help="Base filename for saved raw data")
+
     args = parser.parse_args()
+    #   ---------------------------------------------------------------------------------------------------------------
 
     config_lua_script = f'{current_dir}/scripts/1843_config_streaming_task3.lua'
     
@@ -83,4 +95,4 @@ if __name__ == "__main__":
     if args.config:
         radar1 = radar()
         radar1.mmwave_config(config_lua_script)
-    main(args.cfar)
+    main(args.cfar, args.exp_name, args.save_raw_dt)

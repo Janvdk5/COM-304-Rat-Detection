@@ -1,17 +1,19 @@
 import numpy as np
 import queue
-import signal
 import time
-import os
+import sys
 
 # from streaming_base.mmwave.dataloader.adc import DCA1000 
-from streaming_base.processing.processing import process_frame, get_accumulated_time_data, process_frame_2d, beamform_2d, get_freq, get_br_hr
-
+from streaming_base.processing.processing import process_frame, get_accumulated_time_data, process_frame_2d
 
 from streaming_base.utils.utils import get_ant_pos_2d 
 from streaming_base.mmwave.dataloader.adcv3 import DCA1000
 
-def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, static_ip, system_ip, stop_event):
+from old.task4_vital_signs_TODO import get_freq, get_br_hr
+from old.task3_tracking_TODO import beamform_2d
+
+
+def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, static_ip, system_ip):
     """
     Producer function for real-time data acquisition from the DCA1000 connected to the AWR1843 radar.
 
@@ -31,12 +33,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
         The static IP address for the DCA1000.
     system_ip : str
         The system IP address.
-    stop_event : Event
-        Handles Ctrl-c Event and nicely closes (child-)processes 
     """
-
-    # Ignore Ctrl+C in the child; main process handles shutdown
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     # Parameters
     r_idxs = cfg_radar["range_idx"]
@@ -44,37 +41,6 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
     num_rx = cfg_radar["num_rx"]
     chirp_loops = cfg_radar["num_doppler"]
     adc_samples = cfg_radar["samples_per_chirp"]
-
-    #   -------------------------------------------------------------
-    #
-    #   NOTE :  I ADDED THIS -- 4/20/2026 KERIM
-    #   HERE :  WE SETUP THINGS SO THAT REAL-TIME RAW DATA GETS SAVED 
-    #
-
-    save_raw_dt = cfg_radar["save_raw_dt"]      # NOTE :    think of this like an on/off switch 
-    bin_file = None                             #       -- decides whether we "trigger" the "save proceedure" or not
-
-    if save_raw_dt:
-        exp_path = cfg_radar["exp_path"]
-        exp_name = cfg_radar["exp_name"]
-
-        os.makedirs(exp_path, exist_ok=True)
-
-        bin_path = os.path.join(exp_path, f"{exp_name}_Raw_0.bin")
-
-        # overwrite file with same name if it exists
-
-        if os.path.exists(bin_path):
-            os.remove(bin_path)
-
-        bin_file = open(bin_path, "ab")
-        print(f"Saving raw data stream to {bin_path}")
-
-    #
-    #   -------------------------------------------------------------
-
-
-
 
     last_frame = np.zeros((num_rx * num_tx, chirp_loops, adc_samples), dtype=np.complex64)
     last_frames = np.zeros((5, num_rx * num_tx, chirp_loops, adc_samples), dtype=np.complex64)
@@ -88,53 +54,16 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
     dca.sensor_config(chirps=num_tx, chirp_loops=chirp_loops, num_rx=num_rx, num_samples=adc_samples)
     # dca = DCA1000(config_port=config_port, data_port=data_port, static_ip=static_ip, system_ip=system_ip)
     print("DCA1000 initialized.")
-
-
     try:
-        #while True:
-        while not stop_event.is_set():
-
+        while True:
             # Read data from DCA1000
             # raw = dca.read(timeout=0.5, chirps=chirp_loops, rx=num_rx, tx=num_tx, samples=adc_samples)
-            # raw = read_packet(num_rx, num_tx, adc_samples)$
-
-
-            adc_data = dca.read()       #  NOTE :  (kerim 4/20/2024) 
-                                        #         -- THIS CORRESPONDS TO THE FRESHLY CAPTURED 
-                                        #         -- FRAME COMING FROM THE DCA1000 READ CALL
-            #
-            #  NOTE : It is supposed to return 'int16' dtype (according to its doc) 
-            #   -------------------------------------------------------------
-
-
-            #   -------------------------------------------------------------
-            #
-            #   NOTE :  I ADDED THIS -- 4/20/2026 KERIM
-            #   HERE :  WE SETUP THINGS SO THAT REAL-TIME RAW DATA GETS SAVED 
-            
-
-            #   NOTE :  here we make sure we want to save the data ('save_raw_dt' = True)
-            #           and that there is a valid freshly captured frame (else 'None').
-            if save_raw_dt and adc_data is not None:
-
-                adc_data.astype(np.int16).tofile(bin_file)      
-                #   NOTE : ".tofile(bin_file)" appends that frame to 
-                #           the ".bin" file in which we store incoming raw data 
-                #   
-                #   NOTE : "int16" is standard saveable binary format
-
-            #
-            #   -------------------------------------------------------------
-
-
-
-
+            # raw = read_packet(num_rx, num_tx, adc_samples)
+            adc_data = dca.read()
             raw = dca.organize(raw_frame=adc_data, num_chirps=num_tx*chirp_loops,
             num_rx=num_rx, num_samples=adc_samples, num_frames=1, model='1843') # frames x chirps x samples x rx
-            
             if raw is None:
                 continue
-            
             if not q.empty():
                 continue
             
@@ -191,29 +120,8 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
     except KeyboardInterrupt:
         print("Producer for DCA1000 with ip " + static_ip + " and system ip " + system_ip + " stopped by user.")
-
-
-    #   -------------------------------------------------------------
-    #   -------------------------------------------------------------
-    #
-    #   NOTE : (kerim 4/20/2024) -- I ADDED THIS !!!!!
-    #   Purpose : safely close file in which we were saving real-time captured raw data.
-    #
-
-    finally:
-        # dca.close()   # this was there originally (not me)
-        if bin_file is not None:
-            bin_file.close()
-            print("Data has been recorded and file has been safely closed.")
-
-    #
-    #   -------------------------------------------------------------
-    #   -------------------------------------------------------------
-    
-
-
-
-
+    # finally:
+        # dca.close()
 
 def producer_real_time_1843_task4(q, cfg_radar, cfg_cfar, config_port, data_port, static_ip, system_ip):
     """
