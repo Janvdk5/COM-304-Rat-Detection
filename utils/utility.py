@@ -11,12 +11,7 @@ def read_radar_params(lua_script):
     Paramters:
     - lua_script: lua configuration file
     """
-    full_path = os.path.abspath(lua_script)
-    if not os.path.exists(full_path):
-        # Debug print to see exactly where it's looking
-        print(f"DEBUG: Looking for file at: {full_path}") 
-
-    file1 = open(full_path, 'r')
+    file1 = open(os.path.join(lua_script), 'r')
     Lines = file1.readlines()
     for line in Lines:
         line_ = line.replace(' ', '')

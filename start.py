@@ -8,7 +8,7 @@ import time
 # PARAMS ----------------------------------------
 ENV_NAME = "comm-proj"  
 TASK_NAME = "run"
-CONFIG_FILE = "scripts/1843_config.lua"
+CONFIG_FILE = "scripts/1843_config"
 TEST_NAME = "test"  # output data fil
 EXTRA_FLAGS = ""  
 
@@ -52,9 +52,9 @@ def run_mmwave_studio():
         print(f"Error: Path not found: {studio_path}")
 
 def main():
-    if not is_admin():
-        print("ERROR: This script MUST be run as Administrator.")
-        sys.exit(1)
+    #if not is_admin():
+    #    print("ERROR: This script MUST be run as Administrator.")
+    #    sys.exit(1)
 
     run_command(f"conda activate {ENV_NAME}", "Activating Conda Environment")
     #run_mmwave_studio()
