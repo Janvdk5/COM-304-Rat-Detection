@@ -3,6 +3,8 @@ import sys
 import argparse
 import numpy as np
 
+sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
+
 from utils.radar import radar # this contains helper functions to interact with the radar from Python (after opening up mmWave studio)
 from utils.read_com import find_com_port
 import utils.utility as utility
@@ -18,7 +20,7 @@ from streaming_base.streaming import realtime_streaming_task3
     based on the code in old/task3_tracking_realtime.py
 '''
 
-current_dir = (os.getcwd()) 
+current_dir = (os.path.dirname(os.getcwd())) # one level up for this repo
 
 def main(cfar_on):
     """

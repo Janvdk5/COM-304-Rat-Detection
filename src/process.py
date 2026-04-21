@@ -5,6 +5,8 @@ import sys
 import scipy
 import argparse
 
+sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
+
 import utils.save_adc_data as sd
 import utils.utility as utility
 from utils.singlechip_raw_data_reader_example import TI_PROCESSOR
@@ -22,7 +24,7 @@ from streaming_base.processing.processing import rangefft, beamform_2d, cfar_ca_
     This is a version of Task3_ tracking_TODO
 '''
 
-current_dir = (os.getcwd())
+current_dir = (os.path.dirname(os.getcwd())) # one level up for files
 
 
 def parse_args():

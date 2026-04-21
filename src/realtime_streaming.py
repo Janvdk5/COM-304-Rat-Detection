@@ -1,19 +1,22 @@
-
 import sys
 import warnings
+import matplotlib.pyplot as plt
+import numpy as np
+import logging
+import os
 
 warnings.simplefilter("ignore", UserWarning)
 sys.coinit_flags = 2
 
-import os
+sys.path.append(os.path.dirname(os.getcwd())) # one level up for this repo
+
 from multiprocessing import Process, Queue
-import logging
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
-import matplotlib.pyplot as plt
-import numpy as np
+
 from streaming.prod_dca import producer_real_time_1843
+
 
 def consumer(q, index):
     app = MyApp(q)
