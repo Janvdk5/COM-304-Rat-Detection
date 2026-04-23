@@ -3,6 +3,7 @@ import time
 import numpy as np
 from multiprocessing import Process, Queue, Event
 import os
+from datetime import datetime
 
 # import the producer (should not import GUI libs)
 from streaming_base.streaming.prod_dca import producer_real_time_1843
@@ -74,12 +75,15 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.record_video = True        # NOTE : True to save video, False otherwise
             self.video_writer = None        # NOTE : Video "Recorder" Instance
 
+            timestamp = datetime.today().strftime("%m-%d-%Y_%H-%M-%S")
+
+
             if self.record_video:
 
                 # make sure directory in which we save videos exists within main dir
                 os.makedirs("videos", exist_ok=True)
 
-                file_name = f"beamforming_live_{cfg_radar['exp_name']}.mp4"
+                file_name = f"beamforming_live_{cfg_radar['exp_name']}_{timestamp}.mp4"
 
                 self.video_writer = FFMpegWriter(fps=10, bitrate=1800)
                 self.video_writer.setup(self.fig, os.path.join("videos", file_name), dpi=120)

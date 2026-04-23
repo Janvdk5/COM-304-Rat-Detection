@@ -2,6 +2,7 @@ import numpy as np
 import queue
 import signal
 import time
+from datetime import datetime
 import os
 
 # from streaming_base.mmwave.dataloader.adc import DCA1000 
@@ -54,13 +55,17 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
     save_raw_dt = cfg_radar["save_raw_dt"]      # NOTE :    think of this like an on/off switch 
     bin_file = None                             #       -- decides whether we "trigger" the "save proceedure" or not
 
+    timestamp = datetime.today().strftime("%m-%d-%Y_%H-%M-%S")
+
     if save_raw_dt:
+        #   NOTE :  this block sets up things so that we record and save the incoming data 
+        #           if 'save_raw_dt' field was entered in the terminal
         exp_path = cfg_radar["exp_path"]
         exp_name = cfg_radar["exp_name"]
 
         os.makedirs(exp_path, exist_ok=True)
 
-        bin_path = os.path.join(exp_path, f"{exp_name}_Raw_0.bin")
+        bin_path = os.path.join(exp_path, f"{exp_name}_Raw_0_{timestamp}.bin")
 
         # overwrite file with same name if it exists
 
