@@ -104,7 +104,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             # raw = read_packet(num_rx, num_tx, adc_samples)$
 
 
-            adc_data = dca.read()       #  NOTE :  (kerim 4/20/2024) 
+            adc_data = dca.read(timeout=3.0)       #  NOTE :  (kerim 4/20/2024) 
                                         #         -- THIS CORRESPONDS TO THE FRESHLY CAPTURED 
                                         #         -- FRAME COMING FROM THE DCA1000 READ CALL
             #

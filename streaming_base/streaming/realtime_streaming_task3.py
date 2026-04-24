@@ -83,7 +83,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # make sure directory in which we save videos exists within main dir
                 os.makedirs("videos", exist_ok=True)
 
-                file_name = f"beamforming_live_{cfg_radar['exp_name']}_{timestamp}.mp4"
+                file_name = f"bf_{cfg_radar['exp_name']}_{timestamp}.mp4"
 
                 self.video_writer = FFMpegWriter(fps=10, bitrate=1800)
                 self.video_writer.setup(self.fig, os.path.join("videos", file_name), dpi=120)
@@ -272,7 +272,7 @@ def main(cfg_radar, cfg_cfar):
     producer = Process(
         target=producer_real_time_1843,
         args=(q_main_1, cfg_radar, cfg_cfar, 4096, 4098, "192.168.33.30", "192.168.33.180", stop_event),
-        daemon=False
+        daemon=True
     )
 
 

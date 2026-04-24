@@ -33,7 +33,7 @@ def main(cfar_on, exp_name="test", save_raw_dt=False):
     # r_idxs = np.arange(0, 64, 1)
 
     phi = np.deg2rad(np.arange(0, 180, 1))
-    width = 100 # azimuth width in degrees
+    width =  len(r_idxs) ## 100 # 100 # azimuth width in degrees
 
     # Radar  parameters
     cfg_radar = {
