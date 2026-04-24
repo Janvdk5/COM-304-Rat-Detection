@@ -224,16 +224,8 @@ def beamform_2d(beat_freq_data, radar_params, x_locs):
     ----------
     beat_freq_data : np.ndarray
         The beat frequency data, typically a 3D array.
-    phi_s : float
-        The starting azimuth angle in degrees.
-    phi_e : float
-        The ending azimuth angle in degrees.
-    phi_res : float
-        The azimuth angle resolution in degrees.
     x_locs : np.ndarray
         The x-coordinates of the antennas.
-    r_idxs : np.ndarray
-        The range indices corresponding to the beat frequency data.
     radar_params : dict
         A dictionary containing radar parameters such as sample rate, number of range samples, etc. 
 

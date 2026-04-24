@@ -34,7 +34,7 @@ def read_lua_config(home_dir = "D:/GitHub/COM-304-Rat-Detection", lua_file = "co
 
     args = [chirp_dict['num_tx'], chirp_dict['num_rx'], chirp_dict['samples_per_chirp'], chirp_dict['chirp_loops'], tx_en, rx_en]
 
-    return args
+    return args, chirp_dict
 
 def load_radar_capture(filename, data_dir, home_dir, json_filename, args):
     """
