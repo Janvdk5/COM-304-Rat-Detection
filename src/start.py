@@ -3,6 +3,9 @@ import sys
 import ctypes
 import os
 import time
+import argparse
+
+
 
 ###### USAGE INSTRUCTIONS ######
 # NB: Can comment out mmWave Studio lauching anfd others for ease
@@ -28,8 +31,8 @@ tasks = ["process", "realtime"]
 
 ENV_NAME    =   "radar310"  
 TASK_NAME   =   tasks[0]    # 0: process (old data), 1: realtime (stream live data)
-CONFIG_FILE =   scripts["task3"]     # use dict above to select config
-TEST_NAME   =   "task3_gt"  # output data file
+CONFIG_FILE =   scripts["highres"]     # use dict above to select config
+#TEST_NAME   =   "task3_gt"  # output data file
 EXTRA_FLAGS =   ""  
 
 
@@ -71,7 +74,7 @@ def run_mmwave_studio():
     else:
         print(f"Error: Path not found: {studio_path}")
 
-def main():
+def main(exp_name="test"):
     #if not is_admin():
     #    print("ERROR: This script MUST be run as Administrator.")
     #    sys.exit(1)
@@ -85,8 +88,8 @@ def main():
 
 
     if TASK_NAME == "process":
-        run_command(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {TEST_NAME} {EXTRA_FLAGS}", 
-                    f"Starting Capture Task with command: ``python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {TEST_NAME} {EXTRA_FLAGS}``")
+        run_command(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {exp_name} {EXTRA_FLAGS}", 
+                    f"Starting Capture Task with command: ``python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {exp_name} {EXTRA_FLAGS}``")
     elif TASK_NAME == "realtime":
         run_command(f"python {TASK_NAME}.py --config {EXTRA_FLAGS}", 
                     f"Starting Real-time Task with command: ``python {TASK_NAME}.py --config {EXTRA_FLAGS}``")
@@ -94,4 +97,16 @@ def main():
         print(f"Error: {TASK_NAME} not recognised")
 
 if __name__ == "__main__":
-    main()
+
+
+    
+    #   PARSER --------------------------------------------------------------------------------------------------------
+    parser = argparse.ArgumentParser(description="Example script with command line arguments.")
+
+    # Add arguments
+    parser.add_argument("--exp_name", type=str, default="test", help="Base filename for saved raw data")
+    args = parser.parse_args()
+    #   ---------------------------------------------------------------------------------------------------------------
+
+
+    main(args.exp_name)
