@@ -22,7 +22,7 @@ from streaming_base.streaming import realtime_streaming_task3
 
 current_dir = (os.path.dirname(os.getcwd())) # one level up for this repo
 
-def main(cfar_on, exp_name="test", save_raw_dt=False):
+def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False):
     """
     Main function to start the real-time radar streaming and processing.
     """
@@ -52,7 +52,8 @@ def main(cfar_on, exp_name="test", save_raw_dt=False):
         "range_res": chirp_dict['range_res'],           # NOTE : I ADDED THIS -- 4/20/2026 - KERIM
         "save_raw_dt": save_raw_dt,
         "exp_name": exp_name,
-        "exp_path": os.path.join(current_dir, "data")   # NOTE : Data Directory Path (for specified experiment file)
+        "exp_path": os.path.join(current_dir, "data"),   # NOTE : Data Directory Path (for specified experiment file)
+        "doppler" : doppler
     }
 
     # Parameters for CFAR
@@ -80,6 +81,7 @@ if __name__ == "__main__":
     # Add arguments
     parser.add_argument("--config",  action="store_true", help="True if you want to configure the radar from python.")
     parser.add_argument("--cfar", action="store_true", help="True if you want cfar.")
+    parser.add_argument("--doppler", action="store_true", help="True if you want doppler.")
     parser.add_argument("--save_raw_dt", action="store_true", help="True if you want to save the real-time captured raw data to 'data/<exp_name>_Raw_0.bin'.")
     parser.add_argument("--exp_name", type=str, default="test", help="Base filename for saved raw data")
 
@@ -95,4 +97,4 @@ if __name__ == "__main__":
     if args.config:
         radar1 = radar()
         radar1.mmwave_config(config_lua_script)
-    main(args.cfar, args.exp_name, args.save_raw_dt)
+    main(args.cfar, args.exp_name, args.save_raw_dt, args.doppler)
