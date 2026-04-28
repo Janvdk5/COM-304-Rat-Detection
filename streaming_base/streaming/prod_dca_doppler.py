@@ -194,7 +194,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             bf_input = np.max(np.abs(doppler), axis=1) # (num_ant, range_bins)
             # Beamform across antennas as before.
             bf_output = beamform_2d(bf_input, cfg_radar, x_locs[:,0])
-          
+
 
 
             max_output = abs(bf_output).max()

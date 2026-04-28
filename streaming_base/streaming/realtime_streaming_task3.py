@@ -38,9 +38,30 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
     # GUI-related helpers (move these imports here too)
     from streaming_base.visualization.visualization import (
-        configure_ax_bf, 
+        configure_ax_bf,
     )
     from streaming_base.utils.utils import cart2pol
+
+    # -------------------------------------------------------------------
+    # PIPE DETECTION CONFIG
+    # -------------------------------------------------------------------
+    # The "pipe" is modeled as a rectangular ROI lying *perpendicular* to
+    # the radar's line of sight. In the data's Cartesian frame the radar
+    # looks along +y, so the pipe runs along x at a fixed distance y.
+    # Tune these to match your physical setup.
+    M_PER_BIN            = 0.045352603795783  # meters per range bin
+    PIPE_Y_M             = 1.20               # distance from radar to pipe centre [m]
+    PIPE_Y_THICKNESS_M   = 0.20               # pipe cross-section depth along y [m]
+    PIPE_X_HALFWIDTH_M   = 0.60               # half-length of pipe along x  [m]
+    # Detection threshold on the normalized beamforming magnitude inside
+    # the pipe ROI. Range [0, 1]; lower => more sensitive.
+    DETECTION_THRESHOLD  = 0.35
+    # Temporal smoothing for the in-ROI amplitude (0 = no smoothing, 1 = frozen).
+    DETECTION_EMA_ALPHA  = 0.5
+    # Minimum absolute peak height (normalized) required before drawing a
+    # per-object marker on top of the heatmap.
+    MARKER_MIN_AMP       = 0.25
+    # -------------------------------------------------------------------
 
 
     class MyApp(ShowBase):
@@ -56,7 +77,12 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.fig = plt.figure(figsize=(6, 6))
             self.ax = self.fig.add_subplot(111, projection='polar')
             self.ax.set_ylabel('')
+<<<<<<< Updated upstream
             self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)  
+=======
+            # NOTE : CHANGED THIS TO PLOT ONLY RELEVANT RANGE -- self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)
+            self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)
+>>>>>>> Stashed changes
 
 
             #   ----------------------------------------------------------------
@@ -95,7 +121,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.last_frame_time = time.time()
             self.frame_counter = 0
             self.fps = 0
-            self.last_fps_time = time.time() 
+            self.last_fps_time = time.time()
 
             self.taskMgr.add(self.updateTask, "updateTask")
 
@@ -103,7 +129,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.y = self.r_idxs
             self.X, self.Y = np.meshgrid(self.x, self.y, indexing='xy')
 
-            self.cart2pol = cart2pol(self.X.ravel(), self.Y.ravel()) 
+            self.cart2pol = cart2pol(self.X.ravel(), self.Y.ravel())
 
             self.last_artists = []
             num_ticks = 7
@@ -111,15 +137,21 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             # Pick evenly spaced radial ticks across your range bins
             radial_bins = np.linspace(self.r_idxs.min(), self.r_idxs.max(), num_ticks)
 
+<<<<<<< Updated upstream
             # Convert them to meter labels (or whatever 0.04 means)
             #radial_labels = [f"{rb * 0.045352603795783:.2f}" for rb in radial_bins]
             radial_labels = [f"{rb * cfg_radar['range_res']:.2f}" for rb in radial_bins]
 
+=======
+            # Convert them to meter labels
+            radial_labels = [f"{rb * 0.045352603795783:.2f}" for rb in radial_bins]
+>>>>>>> Stashed changes
 
             # Apply ticks to the polar axis
             self.ax.set_rticks(radial_bins)
             self.ax.set_yticklabels(radial_labels)
 
+<<<<<<< Updated upstream
 
         # HELPERS -------------------------------------------------------------------------
 
@@ -165,12 +197,95 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 return Task.done
 
             # NOTE: single queue, so don't enumerate tuples — just use it
+=======
+            # -----------------------------------------------------------
+            # Pipe ROI (perpendicular to the radar's line of sight)
+            # -----------------------------------------------------------
+            # The Cartesian grids self.X / self.Y are in *range-bin* units
+            # (same scale as self.r_idxs), so convert the config from
+            # meters into bin units using M_PER_BIN.
+            self._pipe_y_bin      = PIPE_Y_M / M_PER_BIN
+            self._pipe_y_half_bin = 0.5 * PIPE_Y_THICKNESS_M / M_PER_BIN
+            self._pipe_x_half_bin = PIPE_X_HALFWIDTH_M / M_PER_BIN
+
+            # Boolean mask over the Cartesian evaluation grid used in
+            # updateTask. True inside the pipe, False elsewhere.
+            self._pipe_mask = (
+                (np.abs(self.Y - self._pipe_y_bin) <= self._pipe_y_half_bin) &
+                (np.abs(self.X) <= self._pipe_x_half_bin)
+            )
+
+            # Build the pipe outline in (x, y) and convert to (phi, r).
+            # The data's cart2pol convention is x = r*sin(phi), y = r*cos(phi),
+            # so phi = arctan2(x, y) and r = hypot(x, y).
+            _n_edge = 60
+            _xs = np.linspace(-self._pipe_x_half_bin, self._pipe_x_half_bin, _n_edge)
+            _y_near = self._pipe_y_bin - self._pipe_y_half_bin
+            _y_far  = self._pipe_y_bin + self._pipe_y_half_bin
+            _outline_x = np.concatenate([
+                _xs,
+                np.full(_n_edge, self._pipe_x_half_bin),
+                _xs[::-1],
+                np.full(_n_edge, -self._pipe_x_half_bin),
+            ])
+            _outline_y = np.concatenate([
+                np.full(_n_edge, _y_near),
+                np.linspace(_y_near, _y_far, _n_edge),
+                np.full(_n_edge, _y_far),
+                np.linspace(_y_far, _y_near, _n_edge),
+            ])
+            _outline_phi = np.arctan2(_outline_x, _outline_y)
+            _outline_r   = np.hypot(_outline_x, _outline_y)
+
+            # Idle vs active style.
+            self._pipe_color_idle   = 'cyan'
+            self._pipe_color_active = 'red'
+            self._pipe_outline, = self.ax.plot(
+                _outline_phi,
+                _outline_r,
+                color=self._pipe_color_idle,
+                linewidth=2.0,
+                linestyle='--',
+                label='Pipe ROI',
+                zorder=5,
+            )
+
+            # Scatter marks the currently-detected object inside the pipe.
+            self._detection_marker = self.ax.scatter(
+                [], [],
+                s=180,
+                facecolors='none',
+                edgecolors='lime',
+                linewidths=3.0,
+                zorder=6,
+            )
+
+            # "OBJECT IN PIPE" banner toggled on/off each frame.
+            self._detection_text = self.ax.text(
+                np.pi / 2,
+                self.r_idxs.max() * 1.05,
+                '',
+                ha='center',
+                va='center',
+                color='red',
+                fontsize=14,
+                fontweight='bold',
+                zorder=7,
+            )
+
+            # EMA state for the in-ROI amplitude.
+            self._roi_ema = 0.0
+
+            self.ax.legend(loc='upper right', fontsize=8)
+
+        def updateTask(self, task):
+            # NOTE: single queue, so don't enumerate tuples, just use it
+>>>>>>> Stashed changes
             try:
                 q = self.q1
                 while not q.empty():
                     msg = q.get_nowait()
                     if msg[0] == 'bev':
-                        # store with a fixed pid 0 (you only have q1)
                         self.latest_msg[0] = msg[1]
                         self.msg_count.add(0)
             except Exception:
@@ -179,8 +294,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             if self.msg_count == {0}:
                 bf_1 = self.latest_msg[0]
 
-                # NOTE: you used self.x1/self.y1 in original — ensure those exist.
-                # If radars are at origin, set to 0. Adjust as you need.
                 self.x1 = getattr(self, "x1", 0.0)
                 self.y1 = getattr(self, "y1", 0.0)
 
@@ -195,6 +308,45 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 )
                 Z1 = interp1(cart2pol1).reshape(self.X.shape)
                 Z_cart = Z1
+
+                # -------------------------------------------------------
+                # PIPE DETECTION
+                # -------------------------------------------------------
+                # Look at the magnitude of the beamforming output inside
+                # the pipe ROI. Normalize by the frame's global max so the
+                # threshold is scale-invariant, then smooth with an EMA to
+                # reject single-frame spikes.
+                Z_cart_mag = np.abs(Z_cart)
+                _zmax = Z_cart_mag.max()
+                if _zmax > 0:
+                    Z_cart_norm = Z_cart_mag / _zmax
+                else:
+                    Z_cart_norm = Z_cart_mag
+
+                roi_vals = Z_cart_norm[self._pipe_mask]
+                if roi_vals.size > 0:
+                    roi_max = float(roi_vals.max())
+                else:
+                    roi_max = 0.0
+
+                # EMA smoothing
+                self._roi_ema = (
+                    DETECTION_EMA_ALPHA * self._roi_ema
+                    + (1.0 - DETECTION_EMA_ALPHA) * roi_max
+                )
+
+                detected = self._roi_ema > DETECTION_THRESHOLD
+                peak_phi = None
+                peak_r   = None
+                if detected and roi_max > MARKER_MIN_AMP:
+                    # Locate the brightest pixel inside the ROI.
+                    masked = Z_cart_norm * self._pipe_mask
+                    flat_idx = int(np.argmax(masked))
+                    iy, ix = np.unravel_index(flat_idx, Z_cart_norm.shape)
+                    x_peak = float(self.X[iy, ix])
+                    y_peak = float(self.Y[iy, ix])
+                    peak_phi = np.arctan2(x_peak, y_peak)
+                    peak_r   = np.hypot(x_peak, y_peak)
 
                 interp_cart2pol = RegularGridInterpolator(
                     (self.y, self.x),
@@ -211,9 +363,9 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
                 to_plot = np.abs(Z_polar)
                 mx = np.max(to_plot) if np.max(to_plot) != 0 else 1.0
-                to_plot /= mx 
-                to_plot = to_plot
+                to_plot /= mx
 
+<<<<<<< Updated upstream
                 # self.im.set_array(to_plot.ravel()) 
 
                 # # FPS update
@@ -228,6 +380,30 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 self.im.set_array(to_plot.ravel())
                 
                 self.fig.canvas.draw_idle() 
+=======
+                self.im.set_array(to_plot.ravel())
+
+                # -------------------------------------------------------
+                # Update pipe overlay / detection markers on the plot
+                # -------------------------------------------------------
+                if detected:
+                    self._pipe_outline.set_color(self._pipe_color_active)
+                    self._pipe_outline.set_linestyle('-')
+                    self._detection_text.set_text('OBJECT IN PIPE')
+                    if peak_phi is not None and peak_r is not None:
+                        self._detection_marker.set_offsets(
+                            np.column_stack(([peak_phi], [peak_r]))
+                        )
+                    else:
+                        self._detection_marker.set_offsets(np.empty((0, 2)))
+                else:
+                    self._pipe_outline.set_color(self._pipe_color_idle)
+                    self._pipe_outline.set_linestyle('--')
+                    self._detection_text.set_text('')
+                    self._detection_marker.set_offsets(np.empty((0, 2)))
+
+                self.fig.canvas.draw_idle()
+>>>>>>> Stashed changes
                 QtWidgets.QApplication.processEvents()
 
 
@@ -281,6 +457,7 @@ def main(cfg_radar, cfg_cfar):
     producer.start()
     print("Producer started, launching visualization in main process...")
 
+<<<<<<< Updated upstream
 
 
     #   ----------------------------------------------------------------
@@ -313,6 +490,10 @@ def main(cfg_radar, cfg_cfar):
     #     print("Shutdown complete.")
 
 
+=======
+    run_visualization(q_main_1, cfg_radar, cfg_cfar)
+
+>>>>>>> Stashed changes
     try:
         run_visualization(q_main_1, cfg_radar, cfg_cfar, stop_event)
 
@@ -330,7 +511,10 @@ def main(cfg_radar, cfg_cfar):
             producer.join()
 
         print("Shutdown complete.")
+<<<<<<< Updated upstream
 
     #   
     #   -----------------------------------------------
     #   -----------------------------------------------
+=======
+>>>>>>> Stashed changes

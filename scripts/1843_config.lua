@@ -3,10 +3,10 @@
 --------------------------------------------------------------
 
 
-COM_PORT = 4 -- TODO: edit this!!! (to the correct port number that you see in your Device Manager)
+COM_PORT = 3 -- TODO: edit this!!! (to the correct port number that you see in your Device Manager)
 -- Firmware paths
-RADARSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
-MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
+RADARSS_PATH = "C:\\ti\\mmwave_studio_03_01_04_04\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
+MASTERSS_PATH = "C:\\ti\\mmwave_studio_03_01_04_04\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
 
 -------- VERY IMPORTANT AND SERIOUS RADAR SETTINGS --------
 -- General
@@ -48,12 +48,12 @@ START_CHIRP_TX = 0
 END_CHIRP_TX = NUM_TX-1 
 -- number of subsequent chirps for each transmitter to repeat (check Programming 
 -- Chirp Parameters in TI Radar Devices for more details)
-CHIRP_LOOPS = 1   
+CHIRP_LOOPS = 32   
 -- NUM_FRAMES: number of frames you are collecting (each frame consists of each of the
 -- trasmitter chirps as well as amount of chirp loops per transmitter chirp)
 NUM_FRAMES = 20
 -- PERIODICITY: period of each frame (aka, time between each set of (tx chirps and all of their chirp loops))
-PERIODICITY = 20 -- ms 
+PERIODICITY = 100 -- ms 
 -----------------------------------------------------------
 
 -------- Reset the Radar and set up some basic stuff (static for 1843) --------
