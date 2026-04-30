@@ -212,7 +212,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 noise_floor = np.median(peak_power) * 5.0          # 5x median (tune: 2–5)//each step up kills 0.14m/s of velocity
                 mask = peak_power > noise_floor                    # (range_bins,) bool
                 bf_input = bf_input * mask[np.newaxis, :]
-#update
+
             else:      
                 # NOTE : this part (and all that follows) was there (w/o current cond. statement) originally
                 bf_input = np.mean(last_frames,axis=0)
