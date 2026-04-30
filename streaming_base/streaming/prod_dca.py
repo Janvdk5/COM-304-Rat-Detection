@@ -191,13 +191,26 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 
                 # Zero-velocity notch: kill bins near DC (the static pipe).
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
-                n_notch = 2                                # ±2 bins ≈ ±0.064 m/s (depends on cfg)
-                
+                n_notch = 3                                # ±3 bins of velocity zeroed (tune to taste)
+
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
-                # Collapse Doppler by taking max across velocity bins:
-                
-                # keeps only the strongest moving target at each (ant, range).
-                bf_input = np.max(np.abs(doppler), axis=1) # (num_ant, range_bins)
+
+                # Coherent across antennas: pick the strongest moving velocity bin per range
+                # using power summed across antennas (same velocity bin for all antennas at
+                # each range, so cross-antenna phase is preserved for beamforming).
+                power = np.sum(np.abs(doppler), axis=0)            # (N_CHIRPS, range_bins)
+                best_vel = np.argmax(power, axis=0)                # (range_bins,)
+                r_idx = np.arange(doppler.shape[2])
+                bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
+
+                # Noise mask: only keep range bins whose peak moving-power exceeds an
+                # adaptive noise floor. Without this, every empty range bin still picks
+                # *some* argmax velocity (just noise) and gets beamformed to a random angle,
+                # producing scattered speckle across the whole heatmap.
+                peak_power = power[best_vel, r_idx]                # (range_bins,)
+                noise_floor = np.median(peak_power) * 3.0          # 3x median (tune: 2–5)
+                mask = peak_power > noise_floor                    # (range_bins,) bool
+                bf_input = bf_input * mask[np.newaxis, :]
 
             else:      
                 # NOTE : this part (and all that follows) was there (w/o current cond. statement) originally
