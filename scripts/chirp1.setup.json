@@ -20,10 +20,10 @@
     },
     "capturedFiles": {
         "numFilesCollected": 1,
-        "fileBasePath": "D:/GitHub/COM-304-Rat-Detection\\data/rat-data/27-4-26/full-pipe",
+        "fileBasePath": "D:/GitHub/COM-304-Rat-Detection\\data/rat-data/5-5-26/",
         "files": {
-            "rawFileName": "pipe_take10_Raw_0.bin",
-            "processedFileName": "pipe_take10_Raw_0.bin",
+            "rawFileName": "no-jerry_pipe_wall_5_Raw_0.bin",
+            "processedFileName": "no-jerry_pipe_wall_5_Raw_0.bin",
             "processedFileSummary": {
                 "numZeroFillBytes": 0
             }
