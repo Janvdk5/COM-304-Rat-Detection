@@ -1,5 +1,6 @@
 # top-level: only safe, non-GUI imports
 import time
+import joblib
 import numpy as np
 from multiprocessing import Process, Queue, Event
 import os
@@ -90,8 +91,21 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 print("Video recording started.")
 
             #   ----------------------------------------------------------------
+            
 
+            # ----------------------------------------------------
+            # NOTE: Jan - jerry detector classifier output
+            # -------------------------------------------------------
+            model_path = "D:/GitHub/COM-304-Rat-Detection/data_exploration/model/jerry_detector.pkl"
+            self.classifier = joblib.load(model_path)
 
+            self.text = self.ax.text(
+                0.02, 0.95, "",
+                transform=self.ax.transAxes,
+                color="red",
+                fontsize=12
+            )
+            
             self.last_frame_time = time.time()
             self.frame_counter = 0
             self.fps = 0
@@ -212,9 +226,19 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 to_plot = np.abs(Z_polar)
                 mx = np.max(to_plot) if np.max(to_plot) != 0 else 1.0
                 to_plot /= mx 
-                to_plot = to_plot
+                to_plot = to_plot # NB: Need to be sure this matches model
 
-                # self.im.set_array(to_plot.ravel()) 
+                # ------------------------------------
+                # NOTE: Jan - jerry detector classifier working
+                # ------------------------------------
+                frame = to_plot
+                x = frame.reshape(1, -1)
+                
+                pred = self.classifier.predict(x)
+                label = "Jerry get yo ass outta here!" if pred[0] > 0.8 else "No Jerry"
+                print(f"{label} (confidence: {pred[0]:.2f})")
+                self.text.set_text(f"{label} (confidence: {pred[0]:.2f})")
+
 
                 # # FPS update
                 # current_time = time.time()
