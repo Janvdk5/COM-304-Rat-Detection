@@ -234,7 +234,16 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # ------------------------------------
                 # NOTE: Jan - jerry detector classifier working
                 # ------------------------------------
-                frame = to_plot
+                print("bf_1 shape:", bf_1.shape)
+                print("to_plot shape:", to_plot.shape)
+
+                import cv2
+
+                frame = np.abs(bf_1)
+                frame_small = cv2.resize(frame, (40, 36))
+                print(frame_small.shape)
+
+                frame = frame_small #to_plot
                 x = frame.reshape(1, -1)
                 
                 pred = self.classifier.predict(x)

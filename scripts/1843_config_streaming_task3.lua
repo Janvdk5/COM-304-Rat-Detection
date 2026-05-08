@@ -53,7 +53,7 @@ START_CHIRP_TX = 0
 END_CHIRP_TX = NUM_TX-1 
 -- number of subsequent chirps for each transmitter to repeat (check Programming 
 -- Chirp Parameters in TI Radar Devices for more details)
-CHIRP_LOOPS = 16
+CHIRP_LOOPS = 1
 
 -- NUM_FRAMES: number of frames you are collecting (each frame consists of each of the
 -- trasmitter chirps as well as amount of chirp loops per transmitter chirp)
