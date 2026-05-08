@@ -96,7 +96,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             # ----------------------------------------------------
             # NOTE: Jan - jerry detector classifier output
             # -------------------------------------------------------
-            model_path = "D:/GitHub/COM-304-Rat-Detection/data_exploration/model/jerry_detector.pkl"
+            model_path = "../../data_exploration/model/jerry_detector.pkl"
             self.classifier = joblib.load(model_path)
 
             self.text = self.ax.text(
