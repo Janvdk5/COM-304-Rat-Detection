@@ -178,45 +178,36 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             #     bf_output = beamform_2d_s(range_fft_s, cfg_radar, x_locs[:,0], dets)
             #     dets = process_frame_2d(abs(bf_output), cfg_cfar)
             #     bf_output = dets
-            
-            # ── CURRENT (ACTIVE) PIPELINE ────────────────────────────
-            # Temporal averaging of the last 5 range-FFT frames, then
-            # beamform. Keeps stationary reflectors (e.g. the pipe itself)
-            # in the output.
-            bf_input = np.mean(last_frames,axis=0)
+
+
+            if cfg_radar['doppler']:
+                # NOTE : this part was added (Kasper's Doppler Algo)
+
+                current = last_frames[-1]                  # (num_ant, chirp_loops, range_bins)
+                
+                # Doppler FFT across chirp_loops axis.
+                N_CHIRPS = current.shape[1]                # e.g. 32
+                doppler = np.fft.fftshift(np.fft.fft(current, n=N_CHIRPS, axis=1), axes=1) # (num_ant, N_CHIRPS, range_bins)
+                
+                # Zero-velocity notch: kill bins near DC (the static pipe).
+                mid = N_CHIRPS // 2                        # bin 16 == zero velocity
+                n_notch = 2                                # ±2 bins ≈ ±0.064 m/s (depends on cfg)
+                
+                doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
+                # Collapse Doppler by taking max across velocity bins:
+                
+                # keeps only the strongest moving target at each (ant, range).
+                bf_input = np.max(np.abs(doppler), axis=1) # (num_ant, range_bins)
+
+            else:      
+                # NOTE : this part (and all that follows) was there (w/o current cond. statement) originally
+                bf_input = np.mean(last_frames,axis=0)
+
+
             bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:,0])
-
-            # ── OPT-IN: DOPPLER-BASED MOVING-TARGET FILTER ───────────
-            # Replaces the 5-frame average above with a per-frame Doppler
-            # FFT + zero-velocity notch, so that only *moving* targets
-            # (e.g. a rat in the pipe) contribute to bf_output. To enable:
-            #   1) comment out the two "CURRENT (ACTIVE) PIPELINE" lines
-            #      above (bf_input = ...; bf_output = ...)
-            #   2) uncomment the block below
-            #   3) optionally disable cfg_cfar['bg_sub'] since the notch
-            #      already removes static clutter.
-            
-            # last_frames shape: (5, num_ant, chirp_loops, range_bins)
-            # Use only the most recent frame for Doppler processing.
-            current = last_frames[-1]
-                              # (num_ant, chirp_loops, range_bins)
-            # Doppler FFT across chirp_loops axis.
-            N_CHIRPS = current.shape[1]                # e.g. 32
-            doppler = np.fft.fftshift(
-                np.fft.fft(current, n=N_CHIRPS, axis=1), axes=1
-            )                                          # (num_ant, N_CHIRPS, range_bins)
-            # Zero-velocity notch: kill bins near DC (the static pipe).
-            mid = N_CHIRPS // 2                        # bin 16 == zero velocity
-            n_notch = 2                                # ±2 bins ≈ ±0.064 m/s (depends on cfg)
-            doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
-            # Collapse Doppler by taking max across velocity bins:
-            # keeps only the strongest moving target at each (ant, range).
-            bf_input = np.max(np.abs(doppler), axis=1) # (num_ant, range_bins)
-            # Beamform across antennas as before.
-            bf_output = beamform_2d(bf_input, cfg_radar, x_locs[:,0])
-           # ─────────────────────────────────────────────────────────
-
             max_output = abs(bf_output).max()
+
+
             if cfg_cfar['cfar_on']: 
                 dets = process_frame_2d(abs(bf_output)**2, cfg_cfar)
                 bf_output = dets / max_output
