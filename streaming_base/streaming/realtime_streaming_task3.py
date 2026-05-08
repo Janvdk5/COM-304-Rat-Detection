@@ -96,8 +96,9 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             # ----------------------------------------------------
             # NOTE: Jan - jerry detector classifier output
             # -------------------------------------------------------
-            dirname = os.path.dirname(__file__)
-            model_path = os.path.join(dirname, "../../data_exploration/model/")
+            dirname = os.path.dirname(os.path.abspath(__file__))
+
+            model_path = os.path.abspath(os.path.join(dirname, "../../data_exploration/model"))
 
             self.classifier = joblib.load(model_path)
 
