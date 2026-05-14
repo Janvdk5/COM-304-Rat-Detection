@@ -34,8 +34,8 @@ def configure_ax_bf(ax, phi, r, vmin=0, vmax=0.1):
 
     R, Theta = np.meshgrid(r, phi)
 
-    ax.set_xlim(phi[0], phi[-1])
-    ax.set_ylim(r[0], r[-1])
+    # PolarAxes: radial/theta limits are handled by set_thetamin/max and pcolormesh;
+    # set_xlim/set_ylim here fight the polar projection and can break the heatmap.
     ax.grid(False)
 
     num_phi = len(phi)
@@ -116,21 +116,21 @@ def update_ax_gtrack(ax, tracks, last_artists):
             TRACK_COLORS[uid] = PALETTE(next_idx)
         return TRACK_COLORS[uid]
 
-    # Draw each track
+    # Draw each track (only ACTIVE on map — tentative ghosts were cluttering the view).
     for tr in tracks:
+        if tr['status'] != 'ACTIVE':
+            continue
         x, y        = tr['pos']
         vx, vy      = tr['vel']
         uid         = tr['uid']
         col         = get_color_for_uid(uid)
         col_edge    = col
-
-        if tr['status'] != 'ACTIVE':
-            col = 'None'
+        face = col
 
         # Draw circle for each track
         sc = ax.scatter(x, y,
                    s=500,
-                   facecolor=col,
+                   facecolor=face,
                    edgecolor=col_edge,
                    linewidth=3,
                    zorder=3)

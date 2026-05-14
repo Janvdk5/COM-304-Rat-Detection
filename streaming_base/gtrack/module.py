@@ -176,6 +176,9 @@ class GTrackModule2D:
 
         present = False
         for u in self.active:
+            # Only confirmed tracks count; tentative units on clutter caused false "in pipe".
+            if u.status != 'ACTIVE':
+                continue
             x, y = u.state[0], u.state[1]
             for z in self.config.presence_zones:
                 if z.x_min <= x <= z.x_max and z.y_min <= y <= z.y_max:

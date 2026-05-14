@@ -9,7 +9,8 @@ from utils.radar import radar # this contains helper functions to interact with 
 from utils.read_com import find_com_port
 import utils.utility as utility
 
-from streaming_base.streaming import realtime_streaming_task3 
+from streaming_base.streaming import realtime_streaming_task3
+from streaming_base.streaming import realtime_streaming_track
 
 '''
     The primary things to change in this file are paths to various locations on your computer (mainly inside this repo itself) at the bototm of this file.
@@ -22,7 +23,7 @@ from streaming_base.streaming import realtime_streaming_task3
 
 current_dir = (os.path.dirname(os.getcwd())) # one level up for this repo
 
-def main(cfar_on, exp_name="test", save_raw_dt=False):
+def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False, track=False):
     """
     Main function to start the real-time radar streaming and processing.
     """
@@ -36,6 +37,9 @@ def main(cfar_on, exp_name="test", save_raw_dt=False):
     width =  len(r_idxs) ## 100 # 100 # azimuth width in degrees
 
     # Radar  parameters
+    # Frame period (s) for GTrack Kalman dt — must match PERIODICITY in the Lua file (ms).
+    frame_dt_s = float(chirp_dict["periodicity"]) * 1e-3
+
     cfg_radar = {
         "range_idx": r_idxs,
         "phi": phi,
@@ -50,9 +54,11 @@ def main(cfar_on, exp_name="test", save_raw_dt=False):
         "lm": 3e8 / 77e9,
         "slope": chirp_dict['slope'],
         "range_res": chirp_dict['range_res'],           # NOTE : I ADDED THIS -- 4/20/2026 - KERIM
+        "dt": frame_dt_s,
         "save_raw_dt": save_raw_dt,
         "exp_name": exp_name,
-        "exp_path": os.path.join(current_dir, "data")   # NOTE : Data Directory Path (for specified experiment file)
+        "exp_path": os.path.join(current_dir, "data"),   # NOTE : Data Directory Path (for specified experiment file)
+        "doppler" : doppler
     }
 
     # Parameters for CFAR
@@ -63,13 +69,38 @@ def main(cfar_on, exp_name="test", save_raw_dt=False):
         "num_train_d": 10,
         "num_guard_r": 4,
         "num_guard_d": 2,
-        "threshold_scale": 1e-3
+        # CFAR rate_fa. Lower = stricter (fewer detections), higher = looser.
+        # Default 1e-3 is fine for humans; small / low-RCS targets need looser.
+        "threshold_scale": 1e-2 if track else 1e-3,
+        # 'legacy'  -> Kasper's Doppler+notch -> dense beamform -> optional post-beamform CFAR
+        # 'tracking' -> motion-dense beamform + GTrack (see prod_dca tracking branch).
+        "pipeline": "tracking" if track else "legacy",
+        # Number of Doppler bins to suppress around DC in tracking mode (0 = off).
+        # Small/slow targets get killed by a wide notch; +/- 1 bin is a safer default.
+        "doppler_notch_bins": 1,
     }
+    # In tracking mode: bg_sub, motion-style post-beamform CFAR, and Doppler notch like legacy --doppler.
+    if track:
+        cfg_cfar["bg_sub"] = True
+        cfg_cfar["cfar_on"] = True
+        n_dop = int(chirp_dict["chirp_loops"])
+        if n_dop < 8:
+            print(
+                f"WARNING: CHIRP_LOOPS={n_dop} in Lua — increase to >=8 (e.g. 16) in mmWave for "
+                "usable Doppler / tracking. See scripts/config_doppler.lua (used automatically with --track)."
+            )
+            cfg_cfar["doppler_notch_bins"] = 0
+        else:
+            cfg_cfar["doppler_notch_bins"] = max(cfg_cfar.get("doppler_notch_bins", 2), 2)
 
     print("Starting streaming...")
 
-    # Start the streaming process
-    realtime_streaming_task3.main(cfg_radar, cfg_cfar)
+    if track:
+        # GTrack-wired consumer with PresenceZone2D for "rat in pipe".
+        realtime_streaming_track.main(cfg_radar, cfg_cfar)
+    else:
+        # Legacy pipe-ROI EMA consumer.
+        realtime_streaming_task3.main(cfg_radar, cfg_cfar)
 
 if __name__ == "__main__":
 
@@ -80,13 +111,17 @@ if __name__ == "__main__":
     # Add arguments
     parser.add_argument("--config",  action="store_true", help="True if you want to configure the radar from python.")
     parser.add_argument("--cfar", action="store_true", help="True if you want cfar.")
+    parser.add_argument("--doppler", action="store_true", help="True if you want doppler.")
     parser.add_argument("--save_raw_dt", action="store_true", help="True if you want to save the real-time captured raw data to 'data/<exp_name>_Raw_0.bin'.")
     parser.add_argument("--exp_name", type=str, default="test", help="Base filename for saved raw data")
+    parser.add_argument("--track", action="store_true", help="GTrack + motion-dense beamform (Doppler-style); uses config_doppler.lua when no --doppler. Implies bg_sub and post-CFAR defaults.")
 
     args = parser.parse_args()
     #   ---------------------------------------------------------------------------------------------------------------
-
-    config_lua_script = f'{current_dir}/scripts/1843_config_streaming_task3.lua'
+    if args.doppler or args.track:
+        config_lua_script = f'{current_dir}/scripts/config_doppler.lua'
+    else:
+        config_lua_script = f'{current_dir}/scripts/1843_config_streaming_task3.lua'
     
     # this function reads the parameters from your lua config file (look at this function to see how it expects your config file to be formatted)
     # num_rx, num_tx, samples_per_chirp, periodicity, num_frames, chirp_loops, _, _, _
@@ -95,4 +130,4 @@ if __name__ == "__main__":
     if args.config:
         radar1 = radar()
         radar1.mmwave_config(config_lua_script)
-    main(args.cfar, args.exp_name, args.save_raw_dt)
+    main(args.cfar, args.exp_name, args.save_raw_dt, args.doppler, args.track)

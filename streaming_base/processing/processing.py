@@ -373,3 +373,99 @@ def get_freq(time_data, periodicity):
     # convert from frequency to BPM
     bpm = freqs[max_freq_ind] * 60
     return fft_phase, freqs, bpm
+
+
+#   -------------------------------------------------------------------------------------------------------------------
+#                       Tracking-pipeline additions (ported from human tracking)
+#
+#   Used by the "tracking" mode in prod_dca.py:
+#       range FFT -> bg_sub -> Doppler FFT -> CFAR on RD map -> sparse beamform -> Detection list -> GTrack
+#   -------------------------------------------------------------------------------------------------------------------
+
+def cfar_ca_2d_mask(power_map,
+                    num_train_range: int = 10,
+                    num_train_doppler: int = 8,
+                    num_guard_range: int = 2,
+                    num_guard_doppler: int = 2,
+                    rate_fa: float = 1e-5):
+    """Boolean-mask variant of cfar_ca_2d. Same math, returns bool ndarray."""
+    Tr, Td = num_train_range, num_train_doppler
+    Gr, Gd = num_guard_range, num_guard_doppler
+    Wr = Tr + Gr
+    Wd = Td + Gd
+    Nwin = (2*Wr+1)*(2*Wd+1)
+    Nguard = (2*Gr+1)*(2*Gd+1)
+    Ntrain = Nwin - Nguard
+    kernel_win   = np.ones((2*Wr+1, 2*Wd+1), dtype=float)
+    kernel_guard = np.ones((2*Gr+1, 2*Gd+1), dtype=float)
+    sum_win   = convolve2d(power_map, kernel_win,   mode='same', boundary='fill', fillvalue=0)
+    sum_guard = convolve2d(power_map, kernel_guard, mode='same', boundary='fill', fillvalue=0)
+    sum_train = sum_win - sum_guard
+    noise_level = sum_train / float(Ntrain)
+    alpha = Ntrain * (rate_fa**(-1.0/Ntrain) - 1.0)
+    threshold = alpha * noise_level
+    return power_map > threshold
+
+
+def build_rd_power_map(rd_cube):
+    """Collapse (num_ant, num_doppler, num_range) cube to (num_doppler, num_range) power map."""
+    return np.mean(np.abs(rd_cube) ** 2, axis=0)
+
+
+def notch_zero_velocity(rd_cube, n_notch=2):
+    """Zero out +/- n_notch Doppler bins around DC (post-fftshift) on a copy of rd_cube."""
+    out = rd_cube.copy()
+    if n_notch <= 0:
+        return out
+    nd = out.shape[1]
+    # With very few Doppler bins (e.g. CHIRP_LOOPS=1 in Lua), a ±n_notch mask covers
+    # the entire axis and wipes all energy — no CFAR / no tracks. Skip in that case.
+    if nd <= 2 * n_notch + 1:
+        return out
+    mid = nd // 2
+    lo = max(0, mid - n_notch)
+    hi = min(nd, mid + n_notch + 1)
+    out[:, lo:hi, :] = 0
+    return out
+
+
+def beamform_2d_s(rd_cube, radar_params, x_locs, dets):
+    """
+    Sparse azimuth beamforming: only the (doppler, range) cells flagged by `dets`
+    contribute. rd_cube: (num_ant, num_doppler, num_range) complex.
+    dets: (num_doppler, num_range) bool. Returns (num_phi, num_range) complex64.
+    """
+    lm = radar_params["lm"]
+    phi = radar_params["phi"]
+    num_phi = len(phi)
+    r_idxs = radar_params["range_idx"]
+
+    angles = x_locs * np.cos(phi[:, np.newaxis])
+    phase_shifts = np.exp((1j * 2 * np.pi / lm) * angles)
+
+    d_idx, r_idx = np.nonzero(dets)
+    sph_pwr = np.zeros((num_phi, r_idxs.shape[0]), dtype=np.complex64)
+    for d, r in zip(d_idx, r_idx):
+        beat = rd_cube[:, d, r]
+        beamformed = phase_shifts * beat[np.newaxis, :]
+        beam_power = np.abs(np.sum(beamformed, axis=-1))
+        sph_pwr[:, r] = np.maximum(sph_pwr[:, r], beam_power)
+    return sph_pwr
+
+
+def make_detection_list(bf_map, phi, r_idxs, min_snr_threshold, max_points=None):
+    """Convert (num_phi, num_range) magnitude map into a list of Detection objects."""
+    mask = bf_map >= min_snr_threshold
+    if not mask.any():
+        return []
+    j_idx, i_idx = np.nonzero(mask)
+    snr_vals = bf_map[j_idx, i_idx]
+    if max_points is not None and snr_vals.size > max_points:
+        top_k = np.argpartition(snr_vals, -max_points)[-max_points:]
+        j_idx = j_idx[top_k]
+        i_idx = i_idx[top_k]
+        snr_vals = snr_vals[top_k]
+    return [
+        Detection(r=float(r_idxs[i]), az=float(phi[j]), v=0.0, snr=float(s))
+        for i, j, s in zip(i_idx, j_idx, snr_vals)
+    ]
