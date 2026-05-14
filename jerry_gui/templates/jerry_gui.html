@@ -6,6 +6,7 @@
 
 <h2> Jerry Status: </h2>
 <h3 id="status"> Loading ...</h3>
+<h3 id="24h_count"> Detections Over last 24hrs: 0</h3>
 
 <ul id="jerryDetectList"></ul>
 
@@ -15,6 +16,8 @@
         const fileLoader = await fetch("/events");
         const events = await fileLoader.json();
 
+
+        // running list of all detection events
         const list = document.getElementById("jerryDetectList");
         list.innerHTML = "";
 
@@ -26,13 +29,25 @@
 
         document.getElementById("status").innerText = "Jerry has been detected";
 
-        events.slice().reverse().forEach(e => {
+        // only look at last 5 
+        events.slice().reverse().slice(0, 5).forEach(e => {
             const li = document.createElement("li");
 
             li.textContent = `time of detection: ${e.time}, confidence: ${e.confidence.toFixed(2)}`;
 
             list.appendChild(li)
         });
+
+
+        // add detection counter for last 24hrs
+        const now = new Date();
+        const last24h = evnts.filter(e => {
+            const t = new Date(e.time)
+            return (now - t) < 24 * 60 * 60 * 1000;
+        });
+
+        document.getElementById("count24h").innerText =
+            `Detections (24h): ${last24h.length}`;
 
     }
 

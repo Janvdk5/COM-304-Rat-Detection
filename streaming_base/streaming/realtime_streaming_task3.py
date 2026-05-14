@@ -260,7 +260,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 proba = self.classifier.predict_proba(x)
                 confidence = proba[0,1]
 
-                if confidence > 0.7:
+                if confidence > 0.8:
                     colour = "red"
                     label = "Jerry Detected!" 
 
