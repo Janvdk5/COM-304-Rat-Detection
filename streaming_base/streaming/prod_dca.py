@@ -268,6 +268,14 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # keeps only the strongest moving target at each (ant, range).
                 bf_input = np.max(np.abs(doppler), axis=1) # (num_ant, range_bins)
 
+
+                range_res = float(cfg_radar.get("range_res", 0.0))
+                range_m = np.asarray(r_idxs, dtype=np.float64) * range_res
+                max_m = float(cfg_radar.get("doppler_range_gate_m", 1.0))
+               
+                range_gate = range_m <= max_m
+                bf_input = bf_input * range_gate[np.newaxis, :]
+
             else:      
                 # NOTE : this part (and all that follows) was there (w/o current cond. statement) originally
                 bf_input = np.mean(last_frames,axis=0)
