@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h1>Jerry Detector</h1>
+
+<h2> Jerry Status: </h2>
+<h3 id="status"> Loading ...</h3>
+
+<ul id="jerryDetectList"></ul>
+
+<script>
+    async function loadEvents() {
+        // update main page from events page
+        const fileLoader = await fetch("/events");
+        const events = await fileLoader.json();
+
+        const list = document.getElementById("jerryDetectList");
+        list.innerHTML = "";
+
+        // if json empty, no evets detected
+        if (events.length === 0) {
+            document.getElementById("status").innerText = "Jerry has not been detected yet ...";
+            return
+        }
+
+        document.getElementById("status").innerText = "Jerry has been detected";
+
+        events.slice().reverse().forEach(e => {
+            const li = document.createElement("li");
+
+            li.textContent = `time of detection: ${e.time}, confidence: ${e.confidence.toFixed(2)}`;
+
+            list.appendChild(li)
+        });
+
+    }
+
+    setInterval(loadEvents, 1000); //refresh per second
+    loadEvents();
+
+
+</script>
+
+
+</body>
+</html>

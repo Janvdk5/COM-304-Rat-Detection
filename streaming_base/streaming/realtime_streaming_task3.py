@@ -4,7 +4,9 @@ import joblib
 import numpy as np
 from multiprocessing import Process, Queue, Event
 import os
+import cv2
 from datetime import datetime
+import json
 
 # import the producer (should not import GUI libs)
 from streaming_base.streaming.prod_dca import producer_real_time_1843
@@ -108,6 +110,14 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 color="red",
                 fontsize=12
             )
+
+            # setup new window for output
+            self.det_fig, self.det_ax = plt.subplots()
+            self.det_text = self.det_ax.text(0.5, 0.5, "",
+                                             ha='center', va='center', fontsize=20)
+            self.det_ax.axis("off")
+
+            # -------------------------------------------------------
             
             self.last_frame_time = time.time()
             self.frame_counter = 0
@@ -172,6 +182,18 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
         def on_close(self, event):
             self.request_shutdown()
 
+        def update_log(self, confidence):
+            event = {
+                "time": datetime.now().isoformat(),
+                "confidence": float(confidence),
+                "station": "station_1"
+            }
+
+            with open("../../src/logs/jerry_log.jsonl", "a") as f:
+                f.write(json.dumps(event) + "\n")
+            }
+
+
 
         def updateTask(self, task):
             """
@@ -234,11 +256,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # ------------------------------------
                 # NOTE: Jan - jerry detector classifier working
                 # ------------------------------------
-                print("bf_1 shape:", bf_1.shape)
-                print("to_plot shape:", to_plot.shape)
-
-                import cv2
-
                 frame = np.abs(bf_1)
                 frame_small = cv2.resize(frame, (40, 36))
                 print(frame_small.shape)
@@ -246,10 +263,34 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 frame = frame_small #to_plot
                 x = frame.reshape(1, -1)
                 
-                pred = self.classifier.predict(x)
-                label = "Jerry get yo ass outta here!" if pred[0] > 0.8 else "No Jerry"
-                print(f"{label} (confidence: {pred[0]:.2f})")
-                self.text.set_text(f"{label} (confidence: {pred[0]:.2f})")
+                pred = self.classifier.predict(x) # always giving binary
+                proba = self.classifier.predict_proba(x)
+                confidence = proba[0,1]
+
+                if confidence > 0.8:
+                    colour = "red"
+                    label = "Jerry Detected!" 
+
+                    with open("../../src/logs/jerry_log.txt", "a") as f:
+                        f.write(f"{datetime.now()} - Jerry detected ({confidence:.2f})\n")
+
+                    # try json logger
+                    self.update_log(confidence)
+
+                else:
+                    label = "No Jerry"
+                    colour = "green"
+
+
+                print(f"{label} (OLD confidence: {pred[0]:.2f})")
+                print(f"{label} (confidence: {confidence:.2f})")
+                self.text.set_text(f"{label} (confidence: {confidence:.2f})")
+                self.text.set_text(f"{label} (OLD confidence: {pred[0]:.2f})")
+
+                # new window
+                self.det_text.set_text(f"{label}\n({confidence:.2f})")
+                self.det_ax.set_facecolor(colour)
+                self.det_fig.canvas.draw_idle()
 
 
                 # # FPS update
