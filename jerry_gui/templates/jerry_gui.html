@@ -1,62 +1,165 @@
 <!DOCTYPE html>
 <html>
-<body>
+    <head>
+        <title>Jerry Detector</title>
 
-<h1>Jerry Detector</h1>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<h2> Jerry Status: </h2>
-<h3 id="status"> Loading ...</h3>
-<h3 id="24h_count"> Detections Over last 24hrs: 0</h3>
+        <style>
+            body { background: black; color: lime; font-family: monospace; }
+            #alertBox {
+                display: none;
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #200;
+                padding: 10px;
+            }
+            #loading {
+                position: fixed;
+                width: 100%;
+                height: 100%;
+                background: black;
+                color: lime;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 2em;
+            }
+        </style>
 
-<ul id="jerryDetectList"></ul>
+    </head>
+    <body>
+        <h1>Jerry Detector</h1>
+        <h2> Jerry Status: </h2>
+        <h3 id="status"> Loading ...</h3>
+        <h3 id="24h_count"> Detections Over last 24hrs: 0</h3>
 
-<script>
-    async function loadEvents() {
-        // update main page from events page
-        const fileLoader = await fetch("/events");
-        const events = await fileLoader.json();
+        <canvas id="chart" width="400" height="200"></canvas>
 
 
-        // running list of all detection events
-        const list = document.getElementById("jerryDetectList");
-        list.innerHTML = "";
+        <h3>Last 5 Jerry Sightings: </h3>
+        <ul id="jerryDetectList"></ul>
 
-        // if json empty, no evets detected
-        if (events.length === 0) {
-            document.getElementById("status").innerText = "Jerry has not been detected yet ...";
-            return
+        <div id="alertBox" style="display:none;">
+            <h2>Jerry was detected in the last 30s!!</h2>
+            <img src="{{ url_for('static', filename='jerry.png') }}" width="200">
+            <audio id="alarm" src="{{ url_for('static', filename='alarm.mp3') }}"></audio>
+        </div>
+
+        <script>
+            // function to plot jerry dtection data
+            let chart;
+            function updateChart(events) {
+                const times = events.map(e => new Date(e.time));
+                
+                const counts = {};
+                times.forEach(t => {
+                    const key = t.toISOString().slice(0,16); // minute resolution
+                    counts[key] = (counts[key] || 0) + 1;
+                });
+
+                const labels = Object.keys(counts);
+                const data = Object.values(counts);
+
+                if (chart) chart.destroy();
+
+                chart = new Chart(document.getElementById("chart"), {
+                    type: "line",
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: "Detections over time",
+                            data: data
+                        }]
+                    }
+                });
+            }
+
+            // alert of recent rate detection
+            function triggerAlert() {
+                const box = document.getElementById("alertBox");
+                box.style.display = "block";
+
+                const alarm = document.getElementById("alarm");
+                alarm.play();
+            }
+
+
+            // main html func
+            async function loadEvents() {
+                // update main page from events page
+                const fileLoader = await fetch("/events");
+                const events = await fileLoader.json();
+
+
+                // running list of all detection events
+                const list = document.getElementById("jerryDetectList");
+                list.innerHTML = "";
+
+                // if json empty, no evets detected
+                if (events.length === 0) {
+                    document.getElementById("status").innerText = "Jerry has not been detected yet ...";
+                    return
+                }
+
+                document.getElementById("status").innerText = "Jerry has been detected";
+
+                // only look at last 5 
+                events.slice().reverse().slice(0, 5).forEach(e => {
+                    const li = document.createElement("li");
+
+                    li.textContent = `time of detection: ${e.time}, confidence: ${e.confidence.toFixed(2)}`;
+
+                    list.appendChild(li)
+                });
+
+
+                // add detection counter for last 24hrs
+                const now = new Date();
+                const last24h = events.filter(e => {
+                    const t = new Date(e.time)
+                    return (now - t) < 24 * 60 * 60 * 1000;
+                });
+
+                document.getElementById("24h_count").innerText =
+                    `Detections (24h): ${last24h.length}`;
+
+
+                // if detected in last 30s, make update
+                const recent = events.filter(e => {
+                    const t = new Date(e.time);
+                    return (now - t) < 30000 * 1000;
+                });
+
+                if (recent.length > 0) {
+                    triggerAlert();
+                }
+                
+                document.getElementById("loading").style.display = "none";
+            }
+
+
+            setInterval(loadEvents, 2000); //refresh per second
+            loadEvents();
+            updateChart(events);
+
+
+        </script>
+
+    </body>
+
+    <style>
+        #loading {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: black;
+            color: lime;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
         }
-
-        document.getElementById("status").innerText = "Jerry has been detected";
-
-        // only look at last 5 
-        events.slice().reverse().slice(0, 5).forEach(e => {
-            const li = document.createElement("li");
-
-            li.textContent = `time of detection: ${e.time}, confidence: ${e.confidence.toFixed(2)}`;
-
-            list.appendChild(li)
-        });
-
-
-        // add detection counter for last 24hrs
-        const now = new Date();
-        const last24h = evnts.filter(e => {
-            const t = new Date(e.time)
-            return (now - t) < 24 * 60 * 60 * 1000;
-        });
-
-        document.getElementById("count24h").innerText =
-            `Detections (24h): ${last24h.length}`;
-
-    }
-
-    setInterval(loadEvents, 1000); //refresh per second
-    loadEvents();
-
-
-</script>
-
-
-</body>
+    </style>
 </html>
