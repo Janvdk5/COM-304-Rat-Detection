@@ -104,18 +104,11 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             model_path = os.path.abspath(os.path.join(dirname, "../../data_exploration/model/jerry_detector.joblib")) 
             self.classifier = joblib.load(model_path)
 
-            self.text = self.ax.text(
-                0.02, 0.95, "",
-                transform=self.ax.transAxes,
-                color="red",
-                fontsize=12
-            )
-
             # setup new window for output
             self.det_fig, self.det_ax = plt.subplots()
             self.det_text = self.det_ax.text(0.5, 0.5, "",
                                              ha='center', va='center', fontsize=20)
-            self.det_ax.axis("off")
+            #self.det_ax.axis("off")
 
             # -------------------------------------------------------
             
@@ -189,9 +182,9 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 "station": "station_1"
             }
 
-            with open("../../src/logs/jerry_log.jsonl", "a") as f:
+            with open("D:/GitHub/COM-304-Rat-Detection/src/logs/jerry_log.jsonl", "a") as f:
                 f.write(json.dumps(event) + "\n")
-            }
+            
 
 
 
@@ -257,21 +250,21 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # NOTE: Jan - jerry detector classifier working
                 # ------------------------------------
                 frame = np.abs(bf_1)
-                frame_small = cv2.resize(frame, (40, 36))
-                print(frame_small.shape)
+                #frame_small = cv2.resize(frame, (40, 36))
+                #print(frame_small.shape)
 
-                frame = frame_small #to_plot
+                #frame = frame_small #to_plot
                 x = frame.reshape(1, -1)
                 
                 pred = self.classifier.predict(x) # always giving binary
                 proba = self.classifier.predict_proba(x)
                 confidence = proba[0,1]
 
-                if confidence > 0.8:
+                if confidence > 0.7:
                     colour = "red"
                     label = "Jerry Detected!" 
 
-                    with open("../../src/logs/jerry_log.txt", "a") as f:
+                    with open("D:/GitHub/COM-304-Rat-Detection/src/logs/jerry_log.txt", "a") as f:
                         f.write(f"{datetime.now()} - Jerry detected ({confidence:.2f})\n")
 
                     # try json logger
@@ -280,12 +273,9 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 else:
                     label = "No Jerry"
                     colour = "green"
-
-
-                print(f"{label} (OLD confidence: {pred[0]:.2f})")
-                print(f"{label} (confidence: {confidence:.2f})")
-                self.text.set_text(f"{label} (confidence: {confidence:.2f})")
-                self.text.set_text(f"{label} (OLD confidence: {pred[0]:.2f})")
+                
+                print(f"old prediction: {pred}")
+                print(f"probability: {proba}")
 
                 # new window
                 self.det_text.set_text(f"{label}\n({confidence:.2f})")
