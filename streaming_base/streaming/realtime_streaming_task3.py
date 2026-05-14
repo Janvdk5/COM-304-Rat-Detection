@@ -250,11 +250,12 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # NOTE: Jan - jerry detector classifier working
                 # ------------------------------------
                 frame = np.abs(bf_1)
-                #frame_small = cv2.resize(frame, (40, 36))
-                #print(frame_small.shape)
+           
+                x = frame.reshape(1, -1).astype(np.float64, copy=True)
+                x[~np.isfinite(x)] = 0.0
 
-                #frame = frame_small #to_plot
-                x = np.nan_to_num(frame.reshape(1, -1), nan=0.0, posinf=0.0, neginf=0.0)
+
+                print("x.shape", x.shape)
 
                 pred = self.classifier.predict(x) # always giving binary
                 proba = self.classifier.predict_proba(x)
