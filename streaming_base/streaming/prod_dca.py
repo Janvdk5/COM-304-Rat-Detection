@@ -219,9 +219,13 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
 
             bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:,0])
+            
+
             max_output = abs(bf_output).max()
+            if not np.isfinite(max_output) or max_output <= 0.0:
+                max_output = 1.0
 
-
+                
             if cfg_cfar['cfar_on']: 
                 dets = process_frame_2d(abs(bf_output)**2, cfg_cfar)
                 bf_output = dets / max_output

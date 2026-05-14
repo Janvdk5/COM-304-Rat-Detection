@@ -254,8 +254,8 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 #print(frame_small.shape)
 
                 #frame = frame_small #to_plot
-                x = frame.reshape(1, -1)
-                
+                x = np.nan_to_num(frame.reshape(1, -1), nan=0.0, posinf=0.0, neginf=0.0)
+
                 pred = self.classifier.predict(x) # always giving binary
                 proba = self.classifier.predict_proba(x)
                 confidence = proba[0,1]
