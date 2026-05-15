@@ -182,7 +182,12 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 "station": "station_1"
             }
 
-            with open("D:/GitHub/COM-304-Rat-Detection/src/logs/jerry_log.jsonl", "a") as f:
+            # Use relative path from current file location
+            log_dir = os.path.join(os.path.dirname(__file__), "../../src/logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, "jerry_log.jsonl")
+
+            with open(log_file, "a") as f:
                 f.write(json.dumps(event) + "\n")
             
 
@@ -263,9 +268,14 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
                 if confidence > 0.7:
                     colour = "red"
-                    label = "Jerry Detected!" 
+                    label = "Jerry Detected!"
 
-                    with open("D:/GitHub/COM-304-Rat-Detection/src/logs/jerry_log.txt", "a") as f:
+                    # Use relative path from current file location
+                    log_dir = os.path.join(os.path.dirname(__file__), "../../src/logs")
+                    os.makedirs(log_dir, exist_ok=True)
+                    log_file = os.path.join(log_dir, "jerry_log.txt")
+
+                    with open(log_file, "a") as f:
                         f.write(f"{datetime.now()} - Jerry detected ({confidence:.2f})\n")
 
                     # try json logger
