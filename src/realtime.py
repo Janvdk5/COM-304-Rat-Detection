@@ -87,8 +87,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     #   ---------------------------------------------------------------------------------------------------------------
-
-    config_lua_script = f'{current_dir}/scripts/1843_config_streaming_task3.lua'
+    if args.doppler:
+        config_lua_script = f'{current_dir}/scripts/doppler.lua'
+    else:
+        config_lua_script = f'{current_dir}/scripts/1843_config_streaming_task3.lua'
     
     # this function reads the parameters from your lua config file (look at this function to see how it expects your config file to be formatted)
     # num_rx, num_tx, samples_per_chirp, periodicity, num_frames, chirp_loops, _, _, _
