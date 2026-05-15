@@ -126,6 +126,12 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
             self.cart2pol = cart2pol(self.X.ravel(), self.Y.ravel())
 
+            # Initialize pipe mask (ROI mask for detection region) - all ones by default
+            self._pipe_mask = np.ones(self.X.shape, dtype=bool)
+
+            # Initialize EMA for ROI detection smoothing
+            self._roi_ema = 0.0
+
             self.last_artists = []
             num_ticks = 7
 
