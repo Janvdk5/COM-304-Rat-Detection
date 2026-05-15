@@ -192,7 +192,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # Zero-velocity notch: kill bins near DC (the static pipe).
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
                 #each step up kills another 0.14m/s of velocity
-                n_notch = 3                              # ±2 bins of velocity zeroed (tune to taste) 
+                n_notch = 2                             # ±2 bins of velocity zeroed (tune to taste) 
 
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
 
@@ -204,7 +204,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # try SNR threshold
                 energy = np.sum(np.abs(doppler)**2, axis=0)
                 snr = energy / (np.median(energy) + 1e-6)
-                valid = snr > 3.0
+                valid = snr > 2.0
 
                 best_vel = np.argmax(valid, axis=0)                # (range_bins,)
                 r_idx = np.arange(doppler.shape[2])
