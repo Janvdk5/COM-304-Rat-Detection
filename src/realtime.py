@@ -28,8 +28,12 @@ def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False, track=False
     Main function to start the real-time radar streaming and processing.
     """
 
-    # Parameters for the range-azimuth beamforming
-    r_idxs = np.arange(0, chirp_dict['samples_per_chirp'], 1)
+    # Parameters for the range-azimuth beamforming.
+    # Range-gate to ~1.5 m: the rat lives in the inner part of the FOV, so
+    # there's no point beamforming over bins out to 5+ m and having the
+    # per-frame normalization pull the rat's brightness down.
+    _max_bin = max(8, int(1.5 / chirp_dict['range_res']))
+    r_idxs = np.arange(0, min(_max_bin, chirp_dict['samples_per_chirp']), 1)
 
     # r_idxs = np.arange(0, 64, 1)
 
@@ -64,7 +68,7 @@ def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False, track=False
     # Parameters for CFAR
     cfg_cfar = {
         "cfar_on": cfar_on,
-        "bg_sub": False,
+        "bg_sub": not doppler,  # subtract previous-frame range FFT to kill static clutter (pipe walls, floor, etc.)
         "num_train_r": 10,
         "num_train_d": 10,
         "num_guard_r": 4,

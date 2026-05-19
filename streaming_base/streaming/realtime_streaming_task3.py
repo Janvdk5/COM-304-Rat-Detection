@@ -77,7 +77,11 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.fig = plt.figure(figsize=(6, 6))
             self.ax = self.fig.add_subplot(111, projection='polar')
             self.ax.set_ylabel('')
-            self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)  
+            # vmax controls the colormap saturation point. The rat is a low-RCS
+            # target whose normalized return tends to sit well below 0.3, so the
+            # old 0.3 ceiling made it look very dim. Lowering vmax makes faint
+            # returns much brighter (everything above vmax saturates the same red).
+            self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.1)
 
 
             #   ----------------------------------------------------------------
@@ -133,19 +137,22 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self._roi_ema = 0.0
 
             self.last_artists = []
-            num_ticks = 7
+            num_ticks = 6
 
-            # Pick evenly spaced radial ticks across your range bins
-            radial_bins = np.linspace(self.r_idxs.min(), self.r_idxs.max(), num_ticks)
+            # Visual zoom: clip the polar plot to 0 - VIEW_RANGE_M meters so the
+            # rat is easier to make out. The producer still sends every range
+            # bin in bf_output -- only the *display* is cropped here.
+            VIEW_RANGE_M = 1.2
+            max_bin_visible = min(VIEW_RANGE_M / cfg_radar['range_res'], float(self.r_idxs.max()))
 
-            # Convert them to meter labels (or whatever 0.04 means)
-            #radial_labels = [f"{rb * 0.045352603795783:.2f}" for rb in radial_bins]
+            # Radial ticks across the visible (clipped) range only
+            radial_bins = np.linspace(0.0, max_bin_visible, num_ticks)
             radial_labels = [f"{rb * cfg_radar['range_res']:.2f}" for rb in radial_bins]
 
-
-            # Apply ticks to the polar axis
+            # Apply ticks AND hard r-axis limit
             self.ax.set_rticks(radial_bins)
             self.ax.set_yticklabels(radial_labels)
+            self.ax.set_ylim(0.0, max_bin_visible)
 
 
         # HELPERS -------------------------------------------------------------------------
@@ -392,7 +399,3 @@ def main(cfg_radar, cfg_cfar):
             producer.join()
 
         print("Shutdown complete.")
-
-    #   
-    #   -----------------------------------------------
-    #   -----------------------------------------------

@@ -42,7 +42,7 @@ ADC_SAMPLES = 128 -- 256 -- 32 -- 128
 SAMPLE_RATE = 2420 -- 5000 --2500 -- ksps
 
 -- RX_GAIN: reciever gain
-RX_GAIN = 30 -- dB
+RX_GAIN = 36 -- dB  (was 30; +6 dB to brighten faint rat returns)
 
 -- ChirpConfig
 -- FrameConfig
@@ -60,7 +60,7 @@ CHIRP_LOOPS = 1
 NUM_FRAMES = 0 -- 0 sets it to continous streaming!
 
 -- PERIODICITY: period of each frame (aka, time between each set of (tx chirps and all of their chirp loops))
-PERIODICITY = 20 -- ms 
+PERIODICITY = 40 -- ms  (was 20; tuned so per-frame motion fits ~1 range bin without ghosting)
 -----------------------------------------------------------
 
 -------- Reset the Radar and set up some basic stuff (static for 1843) --------

@@ -82,7 +82,8 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
 
     last_frame = np.zeros((num_rx * num_tx, chirp_loops, adc_samples), dtype=np.complex64)
-    last_frames = np.zeros((5, num_rx * num_tx, chirp_loops, adc_samples), dtype=np.complex64)
+    # Sized by len(r_idxs) so range-gating in src/realtime.py doesn't break the assignment.
+    last_frames = np.zeros((5, num_rx * num_tx, chirp_loops, len(r_idxs)), dtype=np.complex64)
 
     # Get the antenna positions
     x_locs, _, _ = get_ant_pos_2d(num_tx*num_rx, adc_samples, num_rx)
@@ -192,7 +193,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # Zero-velocity notch: kill bins near DC (the static pipe).
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
                 #each step up kills another 0.14m/s of velocity
-                n_notch = 2                             # ±2 bins of velocity zeroed (tune to taste) 
+                n_notch = 1                             # ±2 bins of velocity zeroed (tune to taste) 
 
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
 
@@ -219,20 +220,25 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 mask = peak_power > noise_floor                    # (range_bins,) bool
                 bf_input = bf_input * mask[np.newaxis, :]
 
-            else:      
-                # NOTE : this part (and all that follows) was there (w/o current cond. statement) originally
-                bf_input = np.mean(last_frames,axis=0)
+            else:
+                # With bg_sub on (kills static clutter), we want the MOST RECENT
+                # bg-subtracted frame so a moving rat shows up as a sharp blob
+                # at its current position rather than a smear across the last
+                # ~0.5 s of motion. Use last_frames[-1] not np.mean(last_frames).
+                # (If you turn bg_sub OFF and want temporal smoothing back,
+                #  swap this for: bf_input = np.mean(last_frames, axis=0))
+                # Coherent average of the last 2 bg-subtracted frames: small
+                # SNR boost without smearing motion much. Stays complex so the
+                # downstream beamformer's phase math still works.
+                bf_input = np.mean(last_frames[-2:], axis=0)
 
 
             bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:,0])
-            
-
             max_output = abs(bf_output).max()
             if not np.isfinite(max_output) or max_output <= 0.0:
                 max_output = 1.0
 
-                
-            if cfg_cfar['cfar_on']: 
+            if cfg_cfar['cfar_on']:
                 dets = process_frame_2d(abs(bf_output)**2, cfg_cfar)
                 bf_output = dets / max_output
             else:
@@ -246,109 +252,3 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
     except KeyboardInterrupt:
         print("Producer for DCA1000 with ip " + static_ip + " and system ip " + system_ip + " stopped by user.")
-
-
-    #   -------------------------------------------------------------
-    #   -------------------------------------------------------------
-    #
-    #   NOTE : (kerim 4/20/2024) -- I ADDED THIS !!!!!
-    #   Purpose : safely close file in which we were saving real-time captured raw data.
-    #
-
-    finally:
-        # dca.close()   # this was there originally (not me)
-        if bin_file is not None:
-            bin_file.close()
-            print("Data has been recorded and file has been safely closed.")
-
-    #
-    #   -------------------------------------------------------------
-    #   -------------------------------------------------------------
-    
-
-
-
-
-
-def producer_real_time_1843_task4(q, cfg_radar, cfg_cfar, config_port, data_port, static_ip, system_ip):
-    """
-    Producer function for real-time data acquisition from the DCA1000 connected to the AWR1843 radar.
-
-    Parameters
-    ----------
-    q : queue.Queue
-        The queue to which the processed data will be sent.
-    cfg_radar : dict
-        Configuration parameters for the radar, including range indices, number of transmitters, receivers, chirp loops, and ADC samples. 
-    config_port : str
-        The port for the DCA1000 configuration.
-    data_port : str
-        The port for the DCA1000 data.
-    static_ip : str
-        The static IP address for the DCA1000.
-    system_ip : str
-        The system IP address.
-    """
-
-    # Parameters
-    r_idxs = cfg_radar["range_idx"]
-    num_tx = cfg_radar["num_tx"]
-    num_rx = cfg_radar["num_rx"]
-    chirp_loops = cfg_radar["num_doppler"]
-    adc_samples = cfg_radar["samples_per_chirp"]
-
-    # Setup the DCA1000
-    print("Starting producer for DCA1000 with ip " + static_ip + " and system ip " + system_ip)
-    dca = DCA1000()
-    dca.sensor_config(chirps=num_tx, chirp_loops=chirp_loops, num_rx=num_rx, num_samples=adc_samples)
-
-    print("DCA1000 initialized.")
-            
-
-    last_frame = np.zeros((1, chirp_loops, adc_samples), dtype=np.complex64)
-    acc_time_data = np.zeros(shape=(cfg_radar['num_frames'], cfg_radar['samples_per_chirp']), dtype=np.complex128)
-    second_p = 0
-    try:
-        while True:
-            # Read data from DCA1000
-            # raw = read_packet(num_rx, num_tx, adc_samples)
-
-            adc_data = dca.read()
-            raw = dca.organize(raw_frame=adc_data, num_chirps=num_tx*chirp_loops,
-            num_rx=num_rx, num_samples=adc_samples, num_frames=1, model='1843') # frames x chirps x samples x rx
-            if raw is None:
-                continue
-            if not q.empty():
-                continue
-            
-            # Apply Hamming window
-            # adc_windowed = raw * np.hamming(adc_samples)
-
-            # Reshape the data to (num_tx*num_rx, chirp_loops, adc_samples)
-            raw = raw.reshape(chirp_loops, num_tx, num_rx, adc_samples)
-            raw = raw.transpose(1, 2, 0, 3) # tx, rx, loops, adc samples
-            # raw = raw.reshape(num_tx*num_rx, chirp_loops, adc_samples)
-            raw_all = raw.squeeze() # for heatrate/breathing rate we can just use one antenna
-            range_fft = np.fft.fft(np.sum(raw_all, axis=(0,1)), axis=-1)
-            raw = raw[0,-1,:,:].squeeze() # for heatrate/breathing rate we can just use one antenna
-            # raw = np.sum(raw[[0,2],:,:,:], axis=(0,1,2)) # for heatrate/breathing rate we can just use one antenna
-
-
-            # Compute breathing rate/heartrate 
-            acc_time_data  = get_accumulated_time_data(acc_time_data, range_fft)
-            range_fft = abs(range_fft)
-            phase_data, second_p, max_idx = get_br_hr(range_fft, acc_time_data, second_p)
-            freq_data, freqs, bpm = get_freq(phase_data, cfg_radar['periodicity'])
-            
-            # Send the data to the queue
-            try:
-                # q.put_nowait(("time", (acc_time_data)))
-                q.put(("data", (range_fft/np.max(range_fft), phase_data, max_idx, freq_data/np.max(freq_data), freqs, bpm))) 
-                # q.put_nowait(("freq", (freq_data)))
-            except queue.Full:
-                continue
-
-    except KeyboardInterrupt:
-        print("Producer for DCA1000 with ip " + static_ip + " and system ip " + system_ip + " stopped by user.")
-    # finally:
-        # dca.close()
