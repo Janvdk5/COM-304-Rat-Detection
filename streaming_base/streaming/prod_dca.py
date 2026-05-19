@@ -1,20 +1,12 @@
 import numpy as np
 import queue
 import signal
+import time
 from datetime import datetime
 import os
 
-# from streaming_base.mmwave.dataloader.adc import DCA1000
-from streaming_base.processing.processing import (
-    process_frame,
-    get_accumulated_time_data,
-    process_frame_2d,
-    beamform_2d,
-    get_freq,
-    get_br_hr,
-    # Tracking pipeline uses motion-dense beamform only (no RD-map sparse BF).
-    notch_zero_velocity,
-)
+# from streaming_base.mmwave.dataloader.adc import DCA1000 
+from streaming_base.processing.processing import process_frame, get_accumulated_time_data, process_frame_2d, beamform_2d, get_freq, get_br_hr
 
 
 from streaming_base.utils.utils import get_ant_pos_2d 
@@ -91,8 +83,6 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
     last_frame = np.zeros((num_rx * num_tx, chirp_loops, adc_samples), dtype=np.complex64)
     last_frames = np.zeros((5, num_rx * num_tx, chirp_loops, adc_samples), dtype=np.complex64)
-
-    _printed_startup = [False]
 
     # Get the antenna positions
     x_locs, _, _ = get_ant_pos_2d(num_tx*num_rx, adc_samples, num_rx)
@@ -189,65 +179,6 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             #     dets = process_frame_2d(abs(bf_output), cfg_cfar)
             #     bf_output = dets
 
-            #   -------------------------------------------------------------
-            #   PIPELINE SELECTOR
-            #
-            #   cfg_cfar['pipeline'] picks which detection/beamform path runs:
-            #       'legacy'   (default) -- Kasper's Doppler+notch -> dense beamform -> optional post-beamform CFAR
-            #       'tracking'           -- motion-selective like legacy --doppler: RD cube -> DC notch ->
-            #                              max over Doppler -> dense beamform -> optional post-CFAR; feeds GTrack.
-            #
-            #   The 'tracking' branch reads:
-            #       cfg_cfar['num_train_*'], ['threshold_scale'] (post-beamform CFAR when cfar_on)
-            #       cfg_cfar.get('doppler_notch_bins', 2)
-            #   -------------------------------------------------------------
-            pipeline_mode = cfg_cfar.get('pipeline', 'legacy')
-
-            # Print pipeline config on first frame so we know which mode is running.
-            if not _printed_startup[0]:
-                _printed_startup[0] = True
-                print(
-                    f"[prod] pipeline={pipeline_mode}  "
-                    f"(motion_dense)  "
-                    f"bg_sub={cfg_cfar.get('bg_sub')}  "
-                    f"doppler_notch_bins={cfg_cfar.get('doppler_notch_bins', 2)}  "
-                    f"cfar_on={cfg_cfar.get('cfar_on')}  "
-                    f"threshold_scale={cfg_cfar.get('threshold_scale')}  "
-                    f"train(r,d)=({cfg_cfar.get('num_train_r')},{cfg_cfar.get('num_train_d')})  "
-                    f"guard(r,d)=({cfg_cfar.get('num_guard_r')},{cfg_cfar.get('num_guard_d')})"
-                )
-
-            if pipeline_mode == 'tracking':
-                # Range-Doppler cube: FFT across chirp loops, fftshift so DC is centered.
-                rd_cube = np.fft.fftshift(
-                    np.fft.fft(last_frames[-1], axis=1),
-                    axes=1,
-                )  # shape: (num_ant, num_doppler, num_range)
-
-                # Zero-velocity notch on the cube (suppresses static clutter -- the pipe).
-                rd_cube_notched = notch_zero_velocity(
-                    rd_cube,
-                    n_notch=cfg_cfar.get('doppler_notch_bins', 2),
-                )
-
-                # Same motion-selective chain as legacy --doppler: max |.| over Doppler after notch,
-                # then dense beamform (+ optional post-beamform CFAR).
-                bf_input = np.max(np.abs(rd_cube_notched), axis=1)
-                bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:, 0])
-                max_output = float(np.abs(bf_output).max())
-
-                if cfg_cfar.get('cfar_on'):
-                    dets2 = process_frame_2d(np.abs(bf_output) ** 2, cfg_cfar)
-                    bf_output = dets2 / max_output if max_output > 0 else dets2
-                else:
-                    if max_output > 0.0:
-                        bf_output = bf_output / max_output
-
-                try:
-                    q.put_nowait(("bev", (bf_output)))
-                except queue.Full:
-                    pass
-                continue  # skip the legacy branch below
 
             if cfg_radar['doppler']:
                 # NOTE : this part was added (Kasper's Doppler Algo)
@@ -260,21 +191,33 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 
                 # Zero-velocity notch: kill bins near DC (the static pipe).
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
-                n_notch = 2                                # ±2 bins ≈ ±0.064 m/s (depends on cfg)
-                
+                #each step up kills another 0.14m/s of velocity
+                n_notch = 2                             # ±2 bins of velocity zeroed (tune to taste) 
+
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
-                # Collapse Doppler by taking max across velocity bins:
-                
-                # keeps only the strongest moving target at each (ant, range).
-                bf_input = np.max(np.abs(doppler), axis=1) # (num_ant, range_bins)
 
+                # Coherent across antennas: pick the strongest moving velocity bin per range
+                # using power summed across antennas (same velocity bin for all antennas at
+                # each range, so cross-antenna phase is preserved for beamforming).
+                power = np.sum(np.abs(doppler), axis=0)            # (N_CHIRPS, range_bins)
 
-                range_res = float(cfg_radar.get("range_res", 0.0))
-                range_m = np.asarray(r_idxs, dtype=np.float64) * range_res
-                max_m = float(cfg_radar.get("doppler_range_gate_m", 1.0))
-               
-                range_gate = range_m <= max_m
-                bf_input = bf_input * range_gate[np.newaxis, :]
+                # try SNR threshold
+                energy = np.sum(np.abs(doppler)**2, axis=0)
+                snr = energy / (np.median(energy) + 1e-6)
+                valid = snr > 2.0
+
+                best_vel = np.argmax(valid, axis=0)                # (range_bins,)
+                r_idx = np.arange(doppler.shape[2])
+                bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
+
+                # Noise mask: only keep range bins whose peak moving-power exceeds an
+                # adaptive noise floor. Without this, every empty range bin still picks
+                # *some* argmax velocity (just noise) and gets beamformed to a random angle,
+                # producing scattered speckle across the whole heatmap.
+                peak_power = power[best_vel, r_idx]                # (range_bins,)
+                noise_floor = np.median(peak_power) * 5.0          # 5x median (tune: 2–5)//each step up kills 0.14m/s of velocity
+                mask = peak_power > noise_floor                    # (range_bins,) bool
+                bf_input = bf_input * mask[np.newaxis, :]
 
             else:      
                 # NOTE : this part (and all that follows) was there (w/o current cond. statement) originally
@@ -282,9 +225,13 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
 
             bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:,0])
+            
+
             max_output = abs(bf_output).max()
+            if not np.isfinite(max_output) or max_output <= 0.0:
+                max_output = 1.0
 
-
+                
             if cfg_cfar['cfar_on']: 
                 dets = process_frame_2d(abs(bf_output)**2, cfg_cfar)
                 bf_output = dets / max_output
@@ -361,8 +308,47 @@ def producer_real_time_1843_task4(q, cfg_radar, cfg_cfar, config_port, data_port
     last_frame = np.zeros((1, chirp_loops, adc_samples), dtype=np.complex64)
     acc_time_data = np.zeros(shape=(cfg_radar['num_frames'], cfg_radar['samples_per_chirp']), dtype=np.complex128)
     second_p = 0
+    try:
+        while True:
+            # Read data from DCA1000
+            # raw = read_packet(num_rx, num_tx, adc_samples)
 
-    raise NotImplementedError(
-        "producer_real_time_1843_task4 body was truncated on disk; "
-        "restore from backup before use."
-    )
+            adc_data = dca.read()
+            raw = dca.organize(raw_frame=adc_data, num_chirps=num_tx*chirp_loops,
+            num_rx=num_rx, num_samples=adc_samples, num_frames=1, model='1843') # frames x chirps x samples x rx
+            if raw is None:
+                continue
+            if not q.empty():
+                continue
+            
+            # Apply Hamming window
+            # adc_windowed = raw * np.hamming(adc_samples)
+
+            # Reshape the data to (num_tx*num_rx, chirp_loops, adc_samples)
+            raw = raw.reshape(chirp_loops, num_tx, num_rx, adc_samples)
+            raw = raw.transpose(1, 2, 0, 3) # tx, rx, loops, adc samples
+            # raw = raw.reshape(num_tx*num_rx, chirp_loops, adc_samples)
+            raw_all = raw.squeeze() # for heatrate/breathing rate we can just use one antenna
+            range_fft = np.fft.fft(np.sum(raw_all, axis=(0,1)), axis=-1)
+            raw = raw[0,-1,:,:].squeeze() # for heatrate/breathing rate we can just use one antenna
+            # raw = np.sum(raw[[0,2],:,:,:], axis=(0,1,2)) # for heatrate/breathing rate we can just use one antenna
+
+
+            # Compute breathing rate/heartrate 
+            acc_time_data  = get_accumulated_time_data(acc_time_data, range_fft)
+            range_fft = abs(range_fft)
+            phase_data, second_p, max_idx = get_br_hr(range_fft, acc_time_data, second_p)
+            freq_data, freqs, bpm = get_freq(phase_data, cfg_radar['periodicity'])
+            
+            # Send the data to the queue
+            try:
+                # q.put_nowait(("time", (acc_time_data)))
+                q.put(("data", (range_fft/np.max(range_fft), phase_data, max_idx, freq_data/np.max(freq_data), freqs, bpm))) 
+                # q.put_nowait(("freq", (freq_data)))
+            except queue.Full:
+                continue
+
+    except KeyboardInterrupt:
+        print("Producer for DCA1000 with ip " + static_ip + " and system ip " + system_ip + " stopped by user.")
+    # finally:
+        # dca.close()
