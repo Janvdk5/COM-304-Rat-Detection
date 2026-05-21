@@ -75,7 +75,7 @@ def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False, track=False
         "num_guard_d": 2,
         # CFAR rate_fa. Lower = stricter (fewer detections), higher = looser.
         # Default 1e-3 is fine for humans; small / low-RCS targets need looser.
-        "threshold_scale": 1e-2 if track else 1e-3,
+        "threshold_scale": 1e-2 if track else 1e-1,
         # 'legacy'  -> Kasper's Doppler+notch -> dense beamform -> optional post-beamform CFAR
         # 'tracking' -> motion-dense beamform + GTrack (see prod_dca tracking branch).
         "pipeline": "tracking" if track else "legacy",

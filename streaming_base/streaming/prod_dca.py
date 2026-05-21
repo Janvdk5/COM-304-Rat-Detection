@@ -85,6 +85,14 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
     # Sized by len(r_idxs) so range-gating in src/realtime.py doesn't break the assignment.
     last_frames = np.zeros((5, num_rx * num_tx, chirp_loops, len(r_idxs)), dtype=np.complex64)
 
+    # Mirror-ghost suppression state: short EMA of beam magnitude across frames
+    # (used below to decide which side of each mirrored angle pair is the real target).
+    bf_mag_ema = None
+    # Spotlight follower state (hard-lock single-target tracker; see block below).
+    spot_pi_ema = None      # smoothed peak azimuth index
+    spot_ri_ema = None      # smoothed peak range index
+    spot_hold = 0           # frames since target last seen (for coast/hold)
+
     # Get the antenna positions
     x_locs, _, _ = get_ant_pos_2d(num_tx*num_rx, adc_samples, num_rx)
 
@@ -170,7 +178,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
             # append current frame
             last_frames[:-1] = last_frames[1:]
-            last_frames[-1] = range_fft_s
+            last_frames[-1] = range_fft_s#shifts first frame out, replaces last frame with new one from range_fft
 
             # Compute CFAR
             # if cfg_cfar['before_bf'] == 2:
@@ -207,7 +215,12 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 snr = energy / (np.median(energy) + 1e-6)
                 valid = snr > 2.0
 
-                best_vel = np.argmax(valid, axis=0)                # (range_bins,)
+                # OLD (buggy): np.argmax on a boolean picks the FIRST bin above the SNR
+                # gate (lowest-index = most-negative velocity), not the strongest mover.
+                # best_vel = np.argmax(valid, axis=0)                # (range_bins,)
+                # NEW: among bins that pass the SNR gate, pick the one with the MOST power.
+                masked_energy = np.where(valid, energy, 0.0)        # (N_CHIRPS, range_bins)
+                best_vel = np.argmax(masked_energy, axis=0)         # strongest valid bin per range
                 r_idx = np.arange(doppler.shape[2])
                 bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
 
@@ -216,7 +229,9 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # *some* argmax velocity (just noise) and gets beamformed to a random angle,
                 # producing scattered speckle across the whole heatmap.
                 peak_power = power[best_vel, r_idx]                # (range_bins,)
-                noise_floor = np.median(peak_power) * 5.0          # 5x median (tune: 2–5)//each step up kills 0.14m/s of velocity
+                # OLD (revert here if the rat starts dropping out):
+                # noise_floor = np.median(peak_power) * 5.0
+                noise_floor = np.median(peak_power) * 8.0          # 8x median: stricter, drops weak wall returns
                 mask = peak_power > noise_floor                    # (range_bins,) bool
                 bf_input = bf_input * mask[np.newaxis, :]
 
@@ -234,6 +249,82 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
 
             bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:,0])
+
+            # Angular mask: a single linear array is only trustworthy near broadside.
+            # Zero the unreliable edge angles, where strong / behind-the-radar reflections
+            # alias into ghost blobs. Keep only the central cone. Set ANG_LO/ANG_HI to
+            # 0/180 to disable.
+            ANG_LO_DEG, ANG_HI_DEG = 50.0, 130.0
+            _phi_deg = np.degrees(cfg_radar['phi'])               # (num_phi,)
+            _ang_keep = (_phi_deg >= ANG_LO_DEG) & (_phi_deg <= ANG_HI_DEG)
+            bf_output[~_ang_keep, :] = 0                          # rows = angle
+
+            # Mirror-ghost suppression ------------------------------------------------
+            # A single horizontal antenna line is symmetric about broadside (90 deg):
+            # a weak target at angle a paints an equal-strength ghost at 180-a. Here we
+            # keep only the STRONGER side of each mirrored angle pair (index i <-> 180-i)
+            # and zero the weaker one. The choice uses a short temporal average (EMA) of
+            # the beam magnitude so a flickering ghost (inconsistent over time) loses to
+            # the real target (consistent), instead of the kept side flipping each frame.
+            # Set MIRROR_SUPPRESS = False to revert to drawing both sides (old behavior).
+            MIRROR_SUPPRESS = False
+            if MIRROR_SUPPRESS:
+                _mag = np.abs(bf_output)                       # (num_phi, num_range)
+                if bf_mag_ema is None or bf_mag_ema.shape != _mag.shape:
+                    bf_mag_ema = _mag.copy()
+                else:
+                    # 0.5 = ~3-frame memory; raise toward 0.8 for faster response,
+                    # lower toward 0.3 for a steadier (but laggier) side decision.
+                    bf_mag_ema = 0.5 * _mag + 0.5 * bf_mag_ema
+                _mir = np.zeros_like(bf_mag_ema)
+                _mir[1:] = bf_mag_ema[-1:0:-1]                 # _mir[i] = ema[180-i] (mirror about 90 deg)
+                _keep = bf_mag_ema >= _mir                     # keep stronger side; ties (broadside) kept
+                bf_output = bf_output * _keep
+            # -------------------------------------------------------------------------
+
+            # Spotlight follower (hard-lock single target) ----------------------------
+            # Instead of drawing the whole arc, lock onto the single strongest mover
+            # (assumed to be the rat), smooth its position over a few frames, and keep
+            # ONLY a window around it -- everything else is zeroed. This removes the
+            # mirror ghost (always the weaker copy) and background speckle in one step.
+            # If the target is lost (e.g. rat freezes -> no Doppler), we coast at the
+            # last position for SPOT_HOLD frames, then release (pass the map through so
+            # the follower can re-acquire). Set SPOTLIGHT = False to disable.
+            SPOTLIGHT     = False
+            SPOT_PEAK_REL = 3.0    # peak must exceed this times the map mean to count as a target
+            SPOT_POS_EMA  = 0.5    # position smoothing: higher = snappier, lower = steadier
+            SPOT_ANG_HALF = 12     # spotlight half-width in azimuth (degrees ~ index)
+            SPOT_RNG_HALF = 4      # spotlight half-width in range bins
+            SPOT_HOLD     = 8      # frames to hold last position after target lost
+            if SPOTLIGHT:
+                _m = np.abs(bf_output)                     # (num_phi, num_range)
+                _num_phi, _num_rng = _m.shape
+                _pk = _m.max()
+                _mean = _m.mean()
+                _strong = (_pk > 0.0) and (_pk > SPOT_PEAK_REL * (_mean + 1e-12))
+                if _strong:#basically if peak is larger than a certain threshold
+                    _pi, _ri = np.unravel_index(np.argmax(_m), _m.shape)
+                    if spot_pi_ema is None:
+                        spot_pi_ema, spot_ri_ema = float(_pi), float(_ri)
+                    else:
+                        spot_pi_ema = SPOT_POS_EMA*_pi + (1.0-SPOT_POS_EMA)*spot_pi_ema
+                        spot_ri_ema = SPOT_POS_EMA*_ri + (1.0-SPOT_POS_EMA)*spot_ri_ema
+                    spot_hold = 0
+                else:
+                    spot_hold += 1
+                # Apply the window if we have a (recent) lock; otherwise pass through.
+                if spot_pi_ema is not None and spot_hold <= SPOT_HOLD:
+                    _ci = int(round(spot_pi_ema)); _cr = int(round(spot_ri_ema))
+                    _keep_s = np.zeros_like(_m, dtype=bool)
+                    _lo_i = max(0, _ci-SPOT_ANG_HALF); _hi_i = min(_num_phi, _ci+SPOT_ANG_HALF+1)
+                    _lo_r = max(0, _cr-SPOT_RNG_HALF); _hi_r = min(_num_rng, _cr+SPOT_RNG_HALF+1)
+                    _keep_s[_lo_i:_hi_i, _lo_r:_hi_r] = True
+                    bf_output = bf_output * _keep_s
+                elif spot_hold > SPOT_HOLD:
+                    spot_pi_ema = None     # released: re-acquire on next strong peak
+                    spot_ri_ema = None
+            # -------------------------------------------------------------------------
+
             max_output = abs(bf_output).max()
             if not np.isfinite(max_output) or max_output <= 0.0:
                 max_output = 1.0
