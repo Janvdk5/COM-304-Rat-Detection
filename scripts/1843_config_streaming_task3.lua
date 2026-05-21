@@ -1,7 +1,11 @@
 -- Radar Settings (Original)
 -- 3 Tx 4 Rx | complex 1x
 --------------------------------------------------------------
+<<<<<<< HEAD
 COM_PORT = 7
+=======
+COM_PORT = 3
+>>>>>>> Kasper
 RADARSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
 MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
 
@@ -42,7 +46,7 @@ ADC_SAMPLES = 128 -- 256 -- 32 -- 128
 SAMPLE_RATE = 2420 -- 5000 --2500 -- ksps
 
 -- RX_GAIN: reciever gain
-RX_GAIN = 30 -- dB
+RX_GAIN = 36 -- dB  (was 30; +6 dB to brighten faint rat returns)
 
 -- ChirpConfig
 -- FrameConfig
@@ -60,7 +64,11 @@ CHIRP_LOOPS = 1
 NUM_FRAMES = 0 -- 0 sets it to continous streaming!
 
 -- PERIODICITY: period of each frame (aka, time between each set of (tx chirps and all of their chirp loops))
+<<<<<<< HEAD
 PERIODICITY = 50 -- ms 
+=======
+PERIODICITY = 40 -- ms  (was 20; tuned so per-frame motion fits ~1 range bin without ghosting)
+>>>>>>> Kasper
 -----------------------------------------------------------
 
 -------- Reset the Radar and set up some basic stuff (static for 1843) --------

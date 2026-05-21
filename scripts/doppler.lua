@@ -1,9 +1,24 @@
 -- Radar Settings (Original)
 -- 3 Tx 4 Rx | complex 1x
 --------------------------------------------------------------
+<<<<<<< HEAD
+<<<<<<<< HEAD:scripts/doppler.lua
 COM_PORT = 7
 RADARSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
 MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
+========
+
+
+COM_PORT = 3 -- TODO: edit this!!! (to the correct port number that you see in your Device Manager)
+-- Firmware paths
+RADARSS_PATH = "C:\\ti\\mmwave_studio_03_01_04_04\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
+MASTERSS_PATH = "C:\\ti\\mmwave_studio_03_01_04_04\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
+>>>>>>>> Kasper:scripts/1843_config.lua
+=======
+COM_PORT = 3
+RADARSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
+MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
+>>>>>>> Kasper
 
 -------- VERY IMPORTANT AND SERIOUS RADAR SETTINGS --------
 -- General
@@ -23,7 +38,11 @@ IDLE_TIME = 7 -- 2 -- 3.5 -- 7 -- us
 
 -- RAMP_END_TIME: length of the entire frequency sweep (check RampTimingCalculator in mmWave 
 -- Studio to calculate different values (dependent on FREQ_SLOP, ADC_SAMPLES, and SAMPLE_RATE))
+<<<<<<< HEAD
 RAMP_END_TIME = 63.99 -- 58.22 -- 13.42 --19.82 -- 61.89 -- us
+=======
+RAMP_END_TIME = 128 -- 58.22 -- 13.42 --19.82 -- 61.89 -- us
+>>>>>>> Kasper
 
 -- ADC_START_TIME: time that samples start to be taken (check RampTimingCalculator in mmWave 
 -- Studio to calculate different values (dependent on FREQ_SLOP, ADC_SAMPLES, and SAMPLE_RATE))
@@ -31,11 +50,19 @@ ADC_START_TIME = 9.02 -- 5.99 -- 5.99 -- 8.66 --usn
 
 -- FREQ_SLOPE: slope of the frequency sweep in the FMCW chirp, changing this along with 
 -- ADC_SAMPLES and SAMPLE_RATE will affect the bandwidth
+<<<<<<< HEAD
 FREQ_SLOPE = 62.474 -- 64.598 -- MHz/us
 
 -- ADC_SAMPLES: number of samples we want to take (ex. when taking range FFT, this translates 
 -- to number of range bins we get), changing this along with FREQ_SLOPE and SAMPLE_RATE will affect the bandwidth
 ADC_SAMPLES = 128 -- 256 -- 32 -- 128
+=======
+FREQ_SLOPE = 31.237 -- 64.598 -- MHz/us
+
+-- ADC_SAMPLES: number of samples we want to take (ex. when taking range FFT, this translates 
+-- to number of range bins we get), changing this along with FREQ_SLOPE and SAMPLE_RATE will affect the bandwidth
+ADC_SAMPLES = 256 -- 256 -- 32 -- 128
+>>>>>>> Kasper
 
 -- SAMPLE_RATE: sample rate for ADC_SAMPLES, changing this along with ADC_SAMPLES and 
 -- FREQ_SLOPE will affect the bandwidth
@@ -53,14 +80,31 @@ START_CHIRP_TX = 0
 END_CHIRP_TX = NUM_TX-1 
 -- number of subsequent chirps for each transmitter to repeat (check Programming 
 -- Chirp Parameters in TI Radar Devices for more details)
+<<<<<<< HEAD
+<<<<<<<< HEAD:scripts/doppler.lua
 CHIRP_LOOPS = 32
 
+========
+CHIRP_LOOPS = 32   
+>>>>>>>> Kasper:scripts/1843_config.lua
+=======
+CHIRP_LOOPS = 32
+
+>>>>>>> Kasper
 -- NUM_FRAMES: number of frames you are collecting (each frame consists of each of the
 -- trasmitter chirps as well as amount of chirp loops per transmitter chirp)
 NUM_FRAMES = 0 -- 0 sets it to continous streaming!
 
 -- PERIODICITY: period of each frame (aka, time between each set of (tx chirps and all of their chirp loops))
+<<<<<<< HEAD
+<<<<<<<< HEAD:scripts/doppler.lua
 PERIODICITY = 50 -- ms 
+========
+PERIODICITY = 100 -- ms 
+>>>>>>>> Kasper:scripts/1843_config.lua
+=======
+PERIODICITY = 100 -- ms 
+>>>>>>> Kasper
 -----------------------------------------------------------
 
 -------- Reset the Radar and set up some basic stuff (static for 1843) --------

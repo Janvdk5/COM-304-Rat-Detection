@@ -1,7 +1,7 @@
 {
     "createdByVersion": "2.1.0",
     "createdOn": "2023-10-09T10:54:20.0186601+02:00",
-    "configUsed": "D:/GitHub/COM-304-Rat-Detection\\\\scripts/chirp1.mmwave.json",
+    "configUsed": "C:/Documents/com-304/rat/COM-304-Rat-Detection\\\\scripts/chirp1.mmwave.json",
     "captureHardware": "DCA1000",
     "DCA1000Config": {
         "dataLoggingMode": "raw",
@@ -20,10 +20,17 @@
     },
     "capturedFiles": {
         "numFilesCollected": 1,
+<<<<<<< HEAD
         "fileBasePath": "D:/GitHub/COM-304-Rat-Detection\\data/rat-data/5-5-26/",
         "files": {
             "rawFileName": "no-jerry_pipe_wall_5_Raw_0.bin",
             "processedFileName": "no-jerry_pipe_wall_5_Raw_0.bin",
+=======
+        "fileBasePath": "D:/GitHub/COM-304-Rat-Detection\\data/rat-data/20-4-26/rat-raw",
+        "files": {
+            "rawFileName": "highres_rat_setup-michael_take-1_fs-2420_slp-62-474_N-128_Raw_0.bin",
+            "processedFileName": "highres_rat_setup-michael_take-1_fs-2420_slp-62-474_N-128_Raw_0.bin",
+>>>>>>> Kasper
             "processedFileSummary": {
                 "numZeroFillBytes": 0
             }

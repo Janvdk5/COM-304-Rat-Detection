@@ -1,12 +1,7 @@
 -- Radar Settings (Original)
 -- 3 Tx 4 Rx | complex 1x
 --------------------------------------------------------------
-<<<<<<< HEAD
-COM_PORT = 7
-=======
 COM_PORT = 3
->>>>>>> Kasper
--- Firmware paths
 RADARSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
 MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
 
@@ -14,9 +9,9 @@ MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\
 -- General
 -- Number of transmitters you want to use (note that you still have to change ChirpConfig to reflect this)
 NUM_TX = 3 
+
 -- Number of receivers you want to use (note that you still have to change ChaNAdcConfig to reflect this)
 NUM_RX = 4
-
 
 -- ProfileConfig
 -- START_FREQ: starting frequency of the FMCW chirp, TI1843 only starts from 77 GHz
@@ -46,20 +41,26 @@ ADC_SAMPLES = 128 -- 256 -- 32 -- 128
 -- FREQ_SLOPE will affect the bandwidth
 SAMPLE_RATE = 2420 -- 5000 --2500 -- ksps
 
+-- RX_GAIN: reciever gain
+RX_GAIN = 36 -- dB  (was 30; +6 dB to brighten faint rat returns)
 
+-- ChirpConfig
 -- FrameConfig
 -- START_CHIRP_TX: index of the first chirp
 START_CHIRP_TX = 0
+
 -- END_CHIRP_TX: index of the last chirp (dependent on number of transmitters)
 END_CHIRP_TX = NUM_TX-1 
 -- number of subsequent chirps for each transmitter to repeat (check Programming 
--- Chirp Parameters in TI Radar Devices for more details) This is primarily for Doppler.
-CHIRP_LOOPS = 1   
+-- Chirp Parameters in TI Radar Devices for more details)
+CHIRP_LOOPS = 32
+
 -- NUM_FRAMES: number of frames you are collecting (each frame consists of each of the
 -- trasmitter chirps as well as amount of chirp loops per transmitter chirp)
-NUM_FRAMES = 20
+NUM_FRAMES = 0 -- 0 sets it to continous streaming!
+
 -- PERIODICITY: period of each frame (aka, time between each set of (tx chirps and all of their chirp loops))
-PERIODICITY = 20 -- ms 
+PERIODICITY = 40 -- ms  (was 20; tuned so per-frame motion fits ~1 range bin without ghosting)
 -----------------------------------------------------------
 
 -------- Reset the Radar and set up some basic stuff (static for 1843) --------
@@ -93,7 +94,7 @@ ar1.RfInit()
 -------- DATA CONFIG STUFF (static for 1843) --------
 ar1.DataPathConfig(1, 1, 0)
 ar1.LvdsClkConfig(1, 1)
-ar1.LVDSLaneConfig(0, 1, 1, 0, 0, 1, 0, 0)
+ar1.LVDSLaneConfig(0, 1, 1, 1, 1, 1, 0, 0)
 ---------------------------------------------
 
 -------- SENSOR CONFIG STUFF --------
@@ -136,3 +137,8 @@ print("Range Resolution:", RANGE_RESOLUTION)
 print("Max Unambiguous Range:", MAX_RANGE)
 print("Doppler Resolution:", DOPPLER_RESOLUTION)
 print("Max Doppler:", MAX_DOPPLER)
+
+SAVE_DATA_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\mmWaveStudio\\PostProc\\tmp.bin"
+
+ar1.CaptureCardConfig_StartRecord(SAVE_DATA_PATH, 1)
+ar1.StartFrame()

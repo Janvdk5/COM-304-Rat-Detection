@@ -41,9 +41,30 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
     # GUI-related helpers (move these imports here too)
     from streaming_base.visualization.visualization import (
-        configure_ax_bf, 
+        configure_ax_bf,
     )
     from streaming_base.utils.utils import cart2pol
+
+    # -------------------------------------------------------------------
+    # PIPE DETECTION CONFIG
+    # -------------------------------------------------------------------
+    # The "pipe" is modeled as a rectangular ROI lying *perpendicular* to
+    # the radar's line of sight. In the data's Cartesian frame the radar
+    # looks along +y, so the pipe runs along x at a fixed distance y.
+    # Tune these to match your physical setup.
+    M_PER_BIN            = 0.045352603795783  # meters per range bin
+    PIPE_Y_M             = 1.20               # distance from radar to pipe centre [m]
+    PIPE_Y_THICKNESS_M   = 0.20               # pipe cross-section depth along y [m]
+    PIPE_X_HALFWIDTH_M   = 0.60               # half-length of pipe along x  [m]
+    # Detection threshold on the normalized beamforming magnitude inside
+    # the pipe ROI. Range [0, 1]; lower => more sensitive.
+    DETECTION_THRESHOLD  = 0.35
+    # Temporal smoothing for the in-ROI amplitude (0 = no smoothing, 1 = frozen).
+    DETECTION_EMA_ALPHA  = 0.5
+    # Minimum absolute peak height (normalized) required before drawing a
+    # per-object marker on top of the heatmap.
+    MARKER_MIN_AMP       = 0.25
+    # -------------------------------------------------------------------
 
 
     class MyApp(ShowBase):
@@ -59,7 +80,11 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.fig = plt.figure(figsize=(6, 6))
             self.ax = self.fig.add_subplot(111, projection='polar')
             self.ax.set_ylabel('')
-            self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.3)  
+            # vmax controls the colormap saturation point. The rat is a low-RCS
+            # target whose normalized return tends to sit well below 0.3, so the
+            # old 0.3 ceiling made it look very dim. Lowering vmax makes faint
+            # returns much brighter (everything above vmax saturates the same red).
+            self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.1)
 
 
             #   ----------------------------------------------------------------
@@ -115,7 +140,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.last_frame_time = time.time()
             self.frame_counter = 0
             self.fps = 0
-            self.last_fps_time = time.time() 
+            self.last_fps_time = time.time()
 
             self.taskMgr.add(self.updateTask, "updateTask")
 
@@ -123,22 +148,31 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.y = self.r_idxs
             self.X, self.Y = np.meshgrid(self.x, self.y, indexing='xy')
 
-            self.cart2pol = cart2pol(self.X.ravel(), self.Y.ravel()) 
+            self.cart2pol = cart2pol(self.X.ravel(), self.Y.ravel())
+
+            # Initialize pipe mask (ROI mask for detection region) - all ones by default
+            self._pipe_mask = np.ones(self.X.shape, dtype=bool)
+
+            # Initialize EMA for ROI detection smoothing
+            self._roi_ema = 0.0
 
             self.last_artists = []
-            num_ticks = 7
+            num_ticks = 6
 
-            # Pick evenly spaced radial ticks across your range bins
-            radial_bins = np.linspace(self.r_idxs.min(), self.r_idxs.max(), num_ticks)
+            # Visual zoom: clip the polar plot to 0 - VIEW_RANGE_M meters so the
+            # rat is easier to make out. The producer still sends every range
+            # bin in bf_output -- only the *display* is cropped here.
+            VIEW_RANGE_M = 1.2
+            max_bin_visible = min(VIEW_RANGE_M / cfg_radar['range_res'], float(self.r_idxs.max()))
 
-            # Convert them to meter labels (or whatever 0.04 means)
-            #radial_labels = [f"{rb * 0.045352603795783:.2f}" for rb in radial_bins]
+            # Radial ticks across the visible (clipped) range only
+            radial_bins = np.linspace(0.0, max_bin_visible, num_ticks)
             radial_labels = [f"{rb * cfg_radar['range_res']:.2f}" for rb in radial_bins]
 
-
-            # Apply ticks to the polar axis
+            # Apply ticks AND hard r-axis limit
             self.ax.set_rticks(radial_bins)
             self.ax.set_yticklabels(radial_labels)
+            self.ax.set_ylim(0.0, max_bin_visible)
 
 
         # HELPERS -------------------------------------------------------------------------
@@ -207,7 +241,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 while not q.empty():
                     msg = q.get_nowait()
                     if msg[0] == 'bev':
-                        # store with a fixed pid 0 (you only have q1)
                         self.latest_msg[0] = msg[1]
                         self.msg_count.add(0)
             except Exception:
@@ -216,8 +249,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             if self.msg_count == {0}:
                 bf_1 = self.latest_msg[0]
 
-                # NOTE: you used self.x1/self.y1 in original — ensure those exist.
-                # If radars are at origin, set to 0. Adjust as you need.
                 self.x1 = getattr(self, "x1", 0.0)
                 self.y1 = getattr(self, "y1", 0.0)
 
@@ -232,6 +263,45 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 )
                 Z1 = interp1(cart2pol1).reshape(self.X.shape)
                 Z_cart = Z1
+
+                # -------------------------------------------------------
+                # PIPE DETECTION
+                # -------------------------------------------------------
+                # Look at the magnitude of the beamforming output inside
+                # the pipe ROI. Normalize by the frame's global max so the
+                # threshold is scale-invariant, then smooth with an EMA to
+                # reject single-frame spikes.
+                Z_cart_mag = np.abs(Z_cart)
+                _zmax = Z_cart_mag.max()
+                if _zmax > 0:
+                    Z_cart_norm = Z_cart_mag / _zmax
+                else:
+                    Z_cart_norm = Z_cart_mag
+
+                roi_vals = Z_cart_norm[self._pipe_mask]
+                if roi_vals.size > 0:
+                    roi_max = float(roi_vals.max())
+                else:
+                    roi_max = 0.0
+
+                # EMA smoothing
+                self._roi_ema = (
+                    DETECTION_EMA_ALPHA * self._roi_ema
+                    + (1.0 - DETECTION_EMA_ALPHA) * roi_max
+                )
+
+                detected = self._roi_ema > DETECTION_THRESHOLD
+                peak_phi = None
+                peak_r   = None
+                if detected and roi_max > MARKER_MIN_AMP:
+                    # Locate the brightest pixel inside the ROI.
+                    masked = Z_cart_norm * self._pipe_mask
+                    flat_idx = int(np.argmax(masked))
+                    iy, ix = np.unravel_index(flat_idx, Z_cart_norm.shape)
+                    x_peak = float(self.X[iy, ix])
+                    y_peak = float(self.Y[iy, ix])
+                    peak_phi = np.arctan2(x_peak, y_peak)
+                    peak_r   = np.hypot(x_peak, y_peak)
 
                 interp_cart2pol = RegularGridInterpolator(
                     (self.y, self.x),
@@ -248,6 +318,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
                 to_plot = np.abs(Z_polar)
                 mx = np.max(to_plot) if np.max(to_plot) != 0 else 1.0
+<<<<<<< HEAD
                 to_plot /= mx 
                 to_plot = to_plot # NB: Need to be sure this matches model
 
@@ -292,6 +363,9 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 self.det_text.set_text(f"{label}\n({confidence:.2f})")
                 self.det_ax.set_facecolor(colour)
                 self.det_fig.canvas.draw_idle()
+=======
+                to_plot /= mx
+>>>>>>> Kasper
 
 
                 # # FPS update
@@ -408,7 +482,3 @@ def main(cfg_radar, cfg_cfar):
             producer.join()
 
         print("Shutdown complete.")
-
-    #   
-    #   -----------------------------------------------
-    #   -----------------------------------------------
