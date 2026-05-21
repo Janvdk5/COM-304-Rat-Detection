@@ -60,11 +60,7 @@ CHIRP_LOOPS = 1
 NUM_FRAMES = 0 -- 0 sets it to continous streaming!
 
 -- PERIODICITY: period of each frame (aka, time between each set of (tx chirps and all of their chirp loops))
-<<<<<<< HEAD
-PERIODICITY = 50 -- ms 
-=======
 PERIODICITY = 40 -- ms  (was 20; tuned so per-frame motion fits ~1 range bin without ghosting)
->>>>>>> Kasper
 -----------------------------------------------------------
 
 -------- Reset the Radar and set up some basic stuff (static for 1843) --------

@@ -34,6 +34,7 @@ def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False, track=False
     # per-frame normalization pull the rat's brightness down.
     _max_bin = max(8, int(1.5 / chirp_dict['range_res']))
     r_idxs = np.arange(0, min(_max_bin, chirp_dict['samples_per_chirp']), 1)
+    #r_idxs = np.arange(0, chirp_dict['samples_per_chirp'], 1)
 
     # r_idxs = np.arange(0, 64, 1)
 

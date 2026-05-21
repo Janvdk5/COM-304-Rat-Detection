@@ -126,7 +126,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             dirname = os.path.dirname(os.path.abspath(__file__))
 
             #model_path = os.path.abspath(os.path.join(dirname, "../../data_exploration/model"))
-            model_path = os.path.abspath(os.path.join(dirname, "../../data_exploration/model/jerry_detector.joblib")) 
+            model_path = os.path.abspath(os.path.join(dirname, "../../data_exploration/model/jerry_detector_doppler.joblib")) 
             self.classifier = joblib.load(model_path)
 
             # setup new window for output
