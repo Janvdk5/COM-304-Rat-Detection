@@ -318,7 +318,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
                 to_plot = np.abs(Z_polar)
                 mx = np.max(to_plot) if np.max(to_plot) != 0 else 1.0
-<<<<<<< HEAD
                 to_plot /= mx 
                 to_plot = to_plot # NB: Need to be sure this matches model
 
@@ -363,9 +362,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 self.det_text.set_text(f"{label}\n({confidence:.2f})")
                 self.det_ax.set_facecolor(colour)
                 self.det_fig.canvas.draw_idle()
-=======
-                to_plot /= mx
->>>>>>> Kasper
 
 
                 # # FPS update

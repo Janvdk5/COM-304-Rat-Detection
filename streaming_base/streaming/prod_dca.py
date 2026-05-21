@@ -193,11 +193,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # Zero-velocity notch: kill bins near DC (the static pipe).
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
                 #each step up kills another 0.14m/s of velocity
-<<<<<<< HEAD
-                n_notch = 2                             # ±2 bins of velocity zeroed (tune to taste) 
-=======
                 n_notch = 1                             # ±2 bins of velocity zeroed (tune to taste) 
->>>>>>> Kasper
 
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
 
@@ -224,11 +220,6 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 mask = peak_power > noise_floor                    # (range_bins,) bool
                 bf_input = bf_input * mask[np.newaxis, :]
 
-<<<<<<< HEAD
-            else:      
-                # NOTE : this part (and all that follows) was there (w/o current cond. statement) originally
-                bf_input = np.mean(last_frames,axis=0)
-=======
             else:
                 # With bg_sub on (kills static clutter), we want the MOST RECENT
                 # bg-subtracted frame so a moving rat shows up as a sharp blob
@@ -240,7 +231,6 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # SNR boost without smearing motion much. Stays complex so the
                 # downstream beamformer's phase math still works.
                 bf_input = np.mean(last_frames[-2:], axis=0)
->>>>>>> Kasper
 
 
             bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:,0])
@@ -250,12 +240,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             if not np.isfinite(max_output) or max_output <= 0.0:
                 max_output = 1.0
 
-<<<<<<< HEAD
-                
-            if cfg_cfar['cfar_on']: 
-=======
             if cfg_cfar['cfar_on']:
->>>>>>> Kasper
                 dets = process_frame_2d(abs(bf_output)**2, cfg_cfar)
                 bf_output = dets / max_output
             else:

@@ -1,11 +1,7 @@
 -- Radar Settings (Original)
 -- 3 Tx 4 Rx | complex 1x
 --------------------------------------------------------------
-<<<<<<< HEAD
 COM_PORT = 7
-=======
-COM_PORT = 3
->>>>>>> Kasper
 -- Firmware paths
 RADARSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
 MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"

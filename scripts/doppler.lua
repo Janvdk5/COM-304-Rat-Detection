@@ -15,7 +15,7 @@ RADARSS_PATH = "C:\\ti\\mmwave_studio_03_01_04_04\\rf_eval_firmware\\radarss\\xw
 MASTERSS_PATH = "C:\\ti\\mmwave_studio_03_01_04_04\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
 >>>>>>>> Kasper:scripts/1843_config.lua
 =======
-COM_PORT = 3
+COM_PORT = 7
 RADARSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\radarss\\xwr18xx_radarss.bin"
 MASTERSS_PATH = "C:\\ti\\mmwave_studio_02_01_01_00\\rf_eval_firmware\\masterss\\xwr18xx_masterss.bin"
 >>>>>>> Kasper
