@@ -89,7 +89,7 @@ if __name__ == "__main__":
     #   ---------------------------------------------------------------------------------------------------------------
     if args.doppler:
         config_lua_script = f'{current_dir}/scripts/doppler.lua'
-    else:
+    else:      
         config_lua_script = f'{current_dir}/scripts/1843_config_streaming_task3.lua'
     
     # this function reads the parameters from your lua config file (look at this function to see how it expects your config file to be formatted)

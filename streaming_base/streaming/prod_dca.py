@@ -192,7 +192,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # Zero-velocity notch: kill bins near DC (the static pipe).
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
                 #each step up kills another 0.14m/s of velocity
-                n_notch = 5                              # ±2 bins of velocity zeroed (tune to taste) 
+                n_notch = 2                             # ±2 bins of velocity zeroed (tune to taste) 
 
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
 
@@ -200,7 +200,13 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # using power summed across antennas (same velocity bin for all antennas at
                 # each range, so cross-antenna phase is preserved for beamforming).
                 power = np.sum(np.abs(doppler), axis=0)            # (N_CHIRPS, range_bins)
-                best_vel = np.argmax(power, axis=0)                # (range_bins,)
+
+                # try SNR threshold
+                energy = np.sum(np.abs(doppler)**2, axis=0)
+                snr = energy / (np.median(energy) + 1e-6)
+                valid = snr > 2.0
+
+                best_vel = np.argmax(valid, axis=0)                # (range_bins,)
                 r_idx = np.arange(doppler.shape[2])
                 bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
 
@@ -219,9 +225,13 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
 
 
             bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:,0])
+            
+
             max_output = abs(bf_output).max()
+            if not np.isfinite(max_output) or max_output <= 0.0:
+                max_output = 1.0
 
-
+                
             if cfg_cfar['cfar_on']: 
                 dets = process_frame_2d(abs(bf_output)**2, cfg_cfar)
                 bf_output = dets / max_output

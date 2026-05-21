@@ -182,7 +182,12 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 "station": "station_1"
             }
 
-            with open("D:/GitHub/COM-304-Rat-Detection/src/logs/jerry_log.jsonl", "a") as f:
+            # Use relative path from current file location
+            log_dir = os.path.join(os.path.dirname(__file__), "../../src/logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, "jerry_log.jsonl")
+
+            with open(log_file, "a") as f:
                 f.write(json.dumps(event) + "\n")
             
 
@@ -250,21 +255,27 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # NOTE: Jan - jerry detector classifier working
                 # ------------------------------------
                 frame = np.abs(bf_1)
-                #frame_small = cv2.resize(frame, (40, 36))
-                #print(frame_small.shape)
+           
+                x = frame.reshape(1, -1).astype(np.float64, copy=True)
+                x[~np.isfinite(x)] = 0.0
 
-                #frame = frame_small #to_plot
-                x = frame.reshape(1, -1)
-                
+
+                print("x.shape", x.shape)
+
                 pred = self.classifier.predict(x) # always giving binary
                 proba = self.classifier.predict_proba(x)
                 confidence = proba[0,1]
 
                 if confidence > 0.8:
                     colour = "red"
-                    label = "Jerry Detected!" 
+                    label = "Jerry Detected!"
 
-                    with open("D:/GitHub/COM-304-Rat-Detection/src/logs/jerry_log.txt", "a") as f:
+                    # Use relative path from current file location
+                    log_dir = os.path.join(os.path.dirname(__file__), "../../src/logs")
+                    os.makedirs(log_dir, exist_ok=True)
+                    log_file = os.path.join(log_dir, "jerry_log.txt")
+
+                    with open(log_file, "a") as f:
                         f.write(f"{datetime.now()} - Jerry detected ({confidence:.2f})\n")
 
                     # try json logger
