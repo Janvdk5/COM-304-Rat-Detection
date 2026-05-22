@@ -265,7 +265,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             # alias into ghost blobs. Keep only the central cone. Set ANG_LO/ANG_HI to
             # 0/180 to disable.
             # ANG_LO_DEG, ANG_HI_DEG = 50.0, 130.0    # old: +/-40 deg cone (clipped off-center targets)
-            ANG_LO_DEG, ANG_HI_DEG = 20.0, 160.0      # +/-60 deg: array's usable limit; wider FOV for off-center motion
+            ANG_LO_DEG, ANG_HI_DEG = 10.0, 170.0      # +/-60 deg: array's usable limit; wider FOV for off-center motion
             _phi_deg = np.degrees(cfg_radar['phi'])               # (num_phi,)
             _ang_keep = (_phi_deg >= ANG_LO_DEG) & (_phi_deg <= ANG_HI_DEG)
             bf_output[~_ang_keep, :] = 0                          # rows = angle
@@ -300,7 +300,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             # The emphasis center is smoothed across frames (SPOT_POS_EMA) so it glides,
             # and there is no all-or-nothing lock test, so it can't 'fail to lock'.
             # Set SPOTLIGHT = False to disable. (Old hard-lock version preserved below.)
-            SPOTLIGHT      = True
+            SPOTLIGHT      = False
             SPOT_POS_EMA   = 0.35   # center smoothing: higher = snappier, lower = steadier
             SPOT_ANG_SIGMA = 16.0   # emphasis width in azimuth (deg ~ index); larger = gentler
             SPOT_RNG_SIGMA = 5.0    # emphasis width in range bins
