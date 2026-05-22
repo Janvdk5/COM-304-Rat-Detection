@@ -201,17 +201,26 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # Zero-velocity notch: kill bins near DC (the static pipe).
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
                 #each step up kills another 0.14m/s of velocity
-                n_notch = 1                             # ±2 bins of velocity zeroed (tune to taste) 
+                # n_notch = 1   # old: notched +/-1 bin -> killed the small radial velocities from off-center x-motion
+                n_notch = 0     # only notch the exact zero-velocity (static) bin; keep low-velocity off-center movers
 
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
 
                 # Coherent across antennas: pick the strongest moving velocity bin per range
                 # using power summed across antennas (same velocity bin for all antennas at
                 # each range, so cross-antenna phase is preserved for beamforming).
-                power = np.sum(np.abs(doppler), axis=0)            # (N_CHIRPS, range_bins)
+                fiveFrameAvg = False#turn on to add 5 frame smoothing, doesn't seem to be any better though
+                doppler_history = []
+                doppler_history.append(np.abs(doppler))
+                if len(doppler_history) > 5:
+                    doppler_history.pop()
+
+                doppler_smoothed = np.mean(doppler_history, axis=0) if fiveFrameAvg else np.abs(doppler)
+
+                power = np.sum(doppler_smoothed, axis=0)            # (N_CHIRPS, range_bins)
 
                 # try SNR threshold
-                energy = np.sum(np.abs(doppler)**2, axis=0)
+                energy = np.sum(doppler_smoothed**2, axis=0)
                 snr = energy / (np.median(energy) + 1e-6)
                 valid = snr > 2.0
 
@@ -221,8 +230,9 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # NEW: among bins that pass the SNR gate, pick the one with the MOST power.
                 masked_energy = np.where(valid, energy, 0.0)        # (N_CHIRPS, range_bins)
                 best_vel = np.argmax(masked_energy, axis=0)         # strongest valid bin per range
-                r_idx = np.arange(doppler.shape[2])
-                bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
+                r_idx = np.arange(doppler_smoothed.shape[2])
+                # bf_input = doppler_smoothed[:, best_vel, r_idx]   # BUG: doppler_smoothed=abs() is REAL -> drops phase -> every target pinned to center (90 deg)
+                bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX -- phase is required to resolve off-center angles
 
                 # Noise mask: only keep range bins whose peak moving-power exceeds an
                 # adaptive noise floor. Without this, every empty range bin still picks
@@ -254,7 +264,8 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             # Zero the unreliable edge angles, where strong / behind-the-radar reflections
             # alias into ghost blobs. Keep only the central cone. Set ANG_LO/ANG_HI to
             # 0/180 to disable.
-            ANG_LO_DEG, ANG_HI_DEG = 50.0, 130.0
+            # ANG_LO_DEG, ANG_HI_DEG = 50.0, 130.0    # old: +/-40 deg cone (clipped off-center targets)
+            ANG_LO_DEG, ANG_HI_DEG = 20.0, 160.0      # +/-60 deg: array's usable limit; wider FOV for off-center motion
             _phi_deg = np.degrees(cfg_radar['phi'])               # (num_phi,)
             _ang_keep = (_phi_deg >= ANG_LO_DEG) & (_phi_deg <= ANG_HI_DEG)
             bf_output[~_ang_keep, :] = 0                          # rows = angle
@@ -282,47 +293,78 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 bf_output = bf_output * _keep
             # -------------------------------------------------------------------------
 
-            # Spotlight follower (hard-lock single target) ----------------------------
-            # Instead of drawing the whole arc, lock onto the single strongest mover
-            # (assumed to be the rat), smooth its position over a few frames, and keep
-            # ONLY a window around it -- everything else is zeroed. This removes the
-            # mirror ghost (always the weaker copy) and background speckle in one step.
-            # If the target is lost (e.g. rat freezes -> no Doppler), we coast at the
-            # last position for SPOT_HOLD frames, then release (pass the map through so
-            # the follower can re-acquire). Set SPOTLIGHT = False to disable.
-            SPOTLIGHT     = False
-            SPOT_PEAK_REL = 3.0    # peak must exceed this times the map mean to count as a target
-            SPOT_POS_EMA  = 0.5    # position smoothing: higher = snappier, lower = steadier
-            SPOT_ANG_HALF = 12     # spotlight half-width in azimuth (degrees ~ index)
-            SPOT_RNG_HALF = 4      # spotlight half-width in range bins
-            SPOT_HOLD     = 8      # frames to hold last position after target lost
+            # Spotlight follower (soft emphasis) ---------------------------------------
+            # Boost the brightest moving region and DIM (not erase) everything else, so
+            # the display never blinks to black: the strongest motion is always visible
+            # and a weak/intermittent target still shows up faintly instead of vanishing.
+            # The emphasis center is smoothed across frames (SPOT_POS_EMA) so it glides,
+            # and there is no all-or-nothing lock test, so it can't 'fail to lock'.
+            # Set SPOTLIGHT = False to disable. (Old hard-lock version preserved below.)
+            SPOTLIGHT      = True
+            SPOT_POS_EMA   = 0.35   # center smoothing: higher = snappier, lower = steadier
+            SPOT_ANG_SIGMA = 16.0   # emphasis width in azimuth (deg ~ index); larger = gentler
+            SPOT_RNG_SIGMA = 5.0    # emphasis width in range bins
+            SPOT_FLOOR     = 0.25   # brightness kept OUTSIDE the emphasis (0 = hard cut, 1 = no effect)
             if SPOTLIGHT:
                 _m = np.abs(bf_output)                     # (num_phi, num_range)
                 _num_phi, _num_rng = _m.shape
-                _pk = _m.max()
-                _mean = _m.mean()
-                _strong = (_pk > 0.0) and (_pk > SPOT_PEAK_REL * (_mean + 1e-12))
-                if _strong:#basically if peak is larger than a certain threshold
+                if _m.max() > 0.0:
                     _pi, _ri = np.unravel_index(np.argmax(_m), _m.shape)
                     if spot_pi_ema is None:
                         spot_pi_ema, spot_ri_ema = float(_pi), float(_ri)
                     else:
                         spot_pi_ema = SPOT_POS_EMA*_pi + (1.0-SPOT_POS_EMA)*spot_pi_ema
                         spot_ri_ema = SPOT_POS_EMA*_ri + (1.0-SPOT_POS_EMA)*spot_ri_ema
-                    spot_hold = 0
-                else:
-                    spot_hold += 1
-                # Apply the window if we have a (recent) lock; otherwise pass through.
-                if spot_pi_ema is not None and spot_hold <= SPOT_HOLD:
-                    _ci = int(round(spot_pi_ema)); _cr = int(round(spot_ri_ema))
-                    _keep_s = np.zeros_like(_m, dtype=bool)
-                    _lo_i = max(0, _ci-SPOT_ANG_HALF); _hi_i = min(_num_phi, _ci+SPOT_ANG_HALF+1)
-                    _lo_r = max(0, _cr-SPOT_RNG_HALF); _hi_r = min(_num_rng, _cr+SPOT_RNG_HALF+1)
-                    _keep_s[_lo_i:_hi_i, _lo_r:_hi_r] = True
-                    bf_output = bf_output * _keep_s
-                elif spot_hold > SPOT_HOLD:
-                    spot_pi_ema = None     # released: re-acquire on next strong peak
-                    spot_ri_ema = None
+                    # Soft 2D Gaussian emphasis around the smoothed center; floor keeps context.
+                    _ii = np.arange(_num_phi)[:, None]
+                    _rr = np.arange(_num_rng)[None, :]
+                    _g = np.exp(-0.5*((_ii-spot_pi_ema)/SPOT_ANG_SIGMA)**2 - 0.5*((_rr-spot_ri_ema)/SPOT_RNG_SIGMA)**2)
+                    _weight = SPOT_FLOOR + (1.0-SPOT_FLOOR)*_g
+                    bf_output = bf_output * _weight
+            #
+            # --- OLD hard-lock version (preserved; uncomment to restore, set soft SPOTLIGHT=False) ---
+            # # Spotlight follower (hard-lock single target) ----------------------------
+            # # Instead of drawing the whole arc, lock onto the single strongest mover
+            # # (assumed to be the rat), smooth its position over a few frames, and keep
+            # # ONLY a window around it -- everything else is zeroed. This removes the
+            # # mirror ghost (always the weaker copy) and background speckle in one step.
+            # # If the target is lost (e.g. rat freezes -> no Doppler), we coast at the
+            # # last position for SPOT_HOLD frames, then release (pass the map through so
+            # # the follower can re-acquire). Set SPOTLIGHT = False to disable.
+            # SPOTLIGHT     = True
+            # SPOT_PEAK_REL = 3.0    # peak must exceed this times the map mean to count as a target
+            # SPOT_POS_EMA  = 0.35    # position smoothing: higher = snappier, lower = steadier
+            # SPOT_ANG_HALF = 16     # spotlight half-width in azimuth (degrees ~ index)
+            # SPOT_RNG_HALF = 4      # spotlight half-width in range bins
+            # SPOT_HOLD     = 8      # frames to hold last position after target lost
+            # if SPOTLIGHT:
+            #     _m = np.abs(bf_output)                     # (num_phi, num_range)
+            #     _num_phi, _num_rng = _m.shape
+            #     _pk = _m.max()
+            #     _mean = _m.mean()
+            #     _strong = (_pk > 0.0) and (_pk > SPOT_PEAK_REL * (_mean + 1e-12))
+            #     if _strong:#basically if peak is larger than a certain threshold
+            #         _pi, _ri = np.unravel_index(np.argmax(_m), _m.shape)
+            #         if spot_pi_ema is None:
+            #             spot_pi_ema, spot_ri_ema = float(_pi), float(_ri)
+            #         else:
+            #             spot_pi_ema = SPOT_POS_EMA*_pi + (1.0-SPOT_POS_EMA)*spot_pi_ema
+            #             spot_ri_ema = SPOT_POS_EMA*_ri + (1.0-SPOT_POS_EMA)*spot_ri_ema
+            #         spot_hold = 0
+            #     else:
+            #         spot_hold += 1
+            #     # Apply the window if we have a (recent) lock; otherwise pass through.
+            #     if spot_pi_ema is not None and spot_hold <= SPOT_HOLD:
+            #         _ci = int(round(spot_pi_ema)); _cr = int(round(spot_ri_ema))
+            #         _keep_s = np.zeros_like(_m, dtype=bool)
+            #         _lo_i = max(0, _ci-SPOT_ANG_HALF); _hi_i = min(_num_phi, _ci+SPOT_ANG_HALF+1)
+            #         _lo_r = max(0, _cr-SPOT_RNG_HALF); _hi_r = min(_num_rng, _cr+SPOT_RNG_HALF+1)
+            #         _keep_s[_lo_i:_hi_i, _lo_r:_hi_r] = True
+            #         bf_output = bf_output * _keep_s
+            #     elif spot_hold > SPOT_HOLD:
+            #         spot_pi_ema = None     # released: re-acquire on next strong peak
+            #         spot_ri_ema = None
+            # # -------------------------------------------------------------------------
             # -------------------------------------------------------------------------
 
             max_output = abs(bf_output).max()
