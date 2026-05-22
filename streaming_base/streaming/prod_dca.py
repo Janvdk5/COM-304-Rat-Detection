@@ -200,14 +200,24 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # Coherent across antennas: pick the strongest moving velocity bin per range
                 # using power summed across antennas (same velocity bin for all antennas at
                 # each range, so cross-antenna phase is preserved for beamforming).
-                power = np.sum(np.abs(doppler), axis=0)            # (N_CHIRPS, range_bins)
+                doppler_mag = np.abs(doppler)  # (num_ant, N_CHIRPS, range_bins)
+                doppler_history = []
+                doppler_history.append(doppler_mag)
+                if len(doppler_history) > 5:
+                    doppler_history.pop(0)
+
+                doppler_smoothed = np.mean(doppler_history, axis=0)
+
+                power = np.sum(np.abs(doppler_smoothed), axis=0)            # (N_CHIRPS, range_bins)
 
                 # try SNR threshold
-                energy = np.sum(np.abs(doppler)**2, axis=0)
+                energy = np.sum(np.abs(doppler_smoothed)**2, axis=0)
                 snr = energy / (np.median(energy) + 1e-6)
                 valid = snr > 2.0
 
-                best_vel = np.argmax(valid, axis=0)                # (range_bins,)
+
+                masked_energy = np.where(valid, energy, 0.0)
+                best_vel = np.argmax(masked_energy, axis=0)                # (range_bins,)
                 r_idx = np.arange(doppler.shape[2])
                 bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
 
@@ -216,7 +226,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 # *some* argmax velocity (just noise) and gets beamformed to a random angle,
                 # producing scattered speckle across the whole heatmap.
                 peak_power = power[best_vel, r_idx]                # (range_bins,)
-                noise_floor = np.median(peak_power) * 5.0          # 5x median (tune: 2–5)//each step up kills 0.14m/s of velocity
+                noise_floor = np.median(peak_power) * 8.0          # 5x median (tune: 2–5)//each step up kills 0.14m/s of velocity
                 mask = peak_power > noise_floor                    # (range_bins,) bool
                 bf_input = bf_input * mask[np.newaxis, :]
 
