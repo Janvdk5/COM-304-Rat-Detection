@@ -5,12 +5,11 @@ import time
 from datetime import datetime
 import os
 
-# from streaming_base.mmwave.dataloader.adc import DCA1000 
 from streaming_base.processing.processing import process_frame, get_accumulated_time_data, process_frame_2d, beamform_2d, get_freq, get_br_hr
 
 
 from streaming_base.utils.utils import get_ant_pos_2d 
-from streaming_base.mmwave.dataloader.adcv3 import DCA1000
+from streaming_base.mmwave.dataloader.adc import DCA1000
 
 def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, static_ip, system_ip, stop_event):
     """
@@ -92,7 +91,6 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
     print("Starting producer for DCA1000 with ip " + static_ip + " and system ip " + system_ip)
     dca = DCA1000()
     dca.sensor_config(chirps=num_tx, chirp_loops=chirp_loops, num_rx=num_rx, num_samples=adc_samples)
-    # dca = DCA1000(config_port=config_port, data_port=data_port, static_ip=static_ip, system_ip=system_ip)
     print("DCA1000 initialized.")
 
 
