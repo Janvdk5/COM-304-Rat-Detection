@@ -10,30 +10,16 @@ import argparse
 ###### USAGE INSTRUCTIONS ######
 # NB: Can comment out mmWave Studio lauching anfd others for ease
 # 1) change envirnonment name to match
-# 2) select process (review old data) or realtime (stream live data)
-# 3) select config file 
+# 2) Opne MMwave Studio
+# 3) python start.py 
 
 
 
 # PARAMS ----------------------------------------
-
-scripts = {"task3": "scripts/1843_config_debug_task3", 
-           "task3_realtime": "scripts/1843_config_streaming_task3",
-           "task4": "scripts/1843_config_debug_task4",
-           "task4_realtime": "scripts/1843_config_streaming_task4",
-           "config": "scripts/1843_config_debug_task3",
-           "highres": "scripts/1843_config_highres",
-           "lowres": "scripts/1843_config_lowres",
-           "highrange": "scripts/1843_config_highrange",
-           "lowrange": "scripts/1843_config_lowrange"}
-
-tasks = ["process", "realtime"]
-
-ENV_NAME    =   "radar310"  
-TASK_NAME   =   tasks[0]    # 0: process (old data), 1: realtime (stream live data)
-CONFIG_FILE =   scripts["highres"]     # use dict above to select config
-#TEST_NAME   =   "task3_gt"  # output data file
-EXTRA_FLAGS =   ""  
+ENV_NAME =      r"C:/Users/janva/anaconda3/envs/comm-proj/python.exe" 
+CONFIG_FILE =   "scripts/config_doppler"  # use dict above to select config
+EXTRA_FLAGS =   ["--config", "--doppler", "--cfar"]
+SRC_DIR = (os.path.dirname(os.getcwd()))
 
 
 # FUNCTIONS -------------------------------------
@@ -42,6 +28,10 @@ def is_admin():
         return ctypes.windll.shell32.IsUserAnAdmin()
     except:
         return False
+
+def launch(command, description):
+    print(f"Starting: {description}")
+    return subprocess.Popen(command, shell=True)
 
 def run_command(command, description):
     print(f"{description}...")
@@ -74,39 +64,38 @@ def run_mmwave_studio():
     else:
         print(f"Error: Path not found: {studio_path}")
 
-def main(exp_name="test"):
-    #if not is_admin():
-    #    print("ERROR: This script MUST be run as Administrator.")
-    #    sys.exit(1)
+def main():
+    if not is_admin():
+        print("ERROR: This script MUST be run as Administrator.")
+        sys.exit(1)
 
-    run_command(f"conda activate {ENV_NAME}", "Activating Conda Environment")
+    radar_cmd = [
+        ENV_NAME,
+        os.path.join(SRC_DIR, "src/realtime.py"),
+        *EXTRA_FLAGS  
+    ]
 
-    if TASK_NAME == "realtime":
-        #run_mmwave_studio()
-        print("mmWave Studio now live")
-    run_command("python configure.py", "Running config")
+    gui_cmd = [
+        ENV_NAME,
+        os.path.join(SRC_DIR, "jerry_gui", "jerry_gui.py"),
+    ]
 
+    #run_mmwave_studio()
+    gui_proc = launch(gui_cmd, "Jerry GUI")
+    radar_proc = launch(radar_cmd, "Radar pipeline")
+    time.sleep(2) # let radar init 
+    print("\nBoth processes running/initalising. Close this terminal or Ctrl+C to stop both.\n")
 
-    if TASK_NAME == "process":
-        run_command(f"python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {exp_name} {EXTRA_FLAGS}", 
-                    f"Starting Capture Task with command: ``python {TASK_NAME}.py --config {CONFIG_FILE} --exp_name {exp_name} {EXTRA_FLAGS}``")
-    elif TASK_NAME == "realtime":
-        run_command(f"python {TASK_NAME}.py --config {EXTRA_FLAGS}", 
-                    f"Starting Real-time Task with command: ``python {TASK_NAME}.py --config {EXTRA_FLAGS}``")
-    else:
-        print(f"Error: {TASK_NAME} not recognised")
+    try:
+        radar_proc.wait() #wait for radar
+    except KeyboardInterrupt:
+        pass
+    finally:
+        print("Shutting down...")
+        radar_proc.terminate()
+        gui_proc.terminate()
 
 if __name__ == "__main__":
-
-
-    
-    #   PARSER --------------------------------------------------------------------------------------------------------
-    parser = argparse.ArgumentParser(description="Example script with command line arguments.")
-
-    # Add arguments
-    parser.add_argument("--exp_name", type=str, default="test", help="Base filename for saved raw data")
+    parser = argparse.ArgumentParser()
     args = parser.parse_args()
-    #   ---------------------------------------------------------------------------------------------------------------
-
-
-    main(args.exp_name)
+    main()

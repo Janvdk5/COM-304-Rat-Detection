@@ -6,7 +6,11 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
         <style>
-            body { background: black; color: lime; font-family: monospace; }
+            body { 
+                background: black; 
+                color: lime; 
+                font-family: monospace;
+            }
 
             #alertBox {
                 display: none;
@@ -390,6 +394,13 @@
                 <h3 id="24h_count"> Detections Over last 24hrs: 0</h3>
             </div>
 
+            <!-- plot 1-->>
+            <div class="card">
+                <h3>Live Signal (detection rate per frame)</h3>
+                <canvas id="signalChart"></canvas>
+            </div>
+            
+            <!-- plot 2-->
             <div class="card">
                 <canvas id="chart"></canvas>
             </div>
@@ -397,6 +408,13 @@
             <div class="card">
                 <h3>Last 5 Jerry Sightings: </h3>
                 <ul id="jerryDetectList"></ul>
+            </div>
+
+            
+            <!-- bf 1-->>
+            <div class="card">
+                <h3>Live Beamforming Output</h3>
+                <img id="bfPlot" src="{{ url_for('static', filename='current_bf.png') }}" width="300">
             </div>
         </div>
 
@@ -437,6 +455,30 @@
                 });
             }
 
+            // chart updater for the bf
+            let signalChart;
+            async function updateSignalChart() {
+                const res    = await fetch("/signal");
+                const frames = await res.json();
+
+                const labels = frames.map(e => e.time.slice(11, 19));   // HH:MM:SS
+                const data   = frames.map(e => e.detection_rate);
+
+                // kill refresh animation
+                if (signalChart) signalChart.destroy();
+
+                signalChart = new Chart(document.getElementById("signalChart"), {
+                    type: "line",
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: "Detection rate (rolling window)",
+                            data: data
+                        }]
+                    },
+                });
+            }
+
             // alert of recent rate detection
             function triggerAlert() {
                 const box = document.getElementById("alertBox");
@@ -444,6 +486,11 @@
 
                 const alarm = document.getElementById("alarm");
                 alarm.play();
+            }
+
+            function refreshBF() {
+                const img = document.getElementById("bfPlot");
+                img.src = "/static/current_bf.png"?t=" + new Date().getTime()";
             }
 
 
@@ -461,6 +508,8 @@
                 const events = await fileLoader.json();
 
                 updateChart(events)
+                updateSignalChart()
+                refreshBF()
 
                 // running list of all detection events
                 const list = document.getElementById("jerryDetectList");
@@ -521,13 +570,10 @@
                 setTimeout(() => {
                     loading.style.display = "none";
                 }, 500);
-
             }
-
 
             setInterval(loadEvents, 2000); //refresh per second
             loadEvents();
-
         </script>
 
     </body>

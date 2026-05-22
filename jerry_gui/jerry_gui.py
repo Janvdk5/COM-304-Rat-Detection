@@ -4,10 +4,10 @@ import json
 
 app = fk.Flask(__name__)
 
-current_dir = (os.path.dirname(os.getcwd()))
-JERRY_LOG_PATH = os.path.join(current_dir, "src/logs/jerry_log.jsonl")
+CURRENT_DIR = (os.path.dirname(os.getcwd()))
+JERRY_LOG_PATH = os.path.join(CURRENT_DIR, "src/logs/jerry_log.jsonl")
+SIGNAL_LOG_PATH = os.path.join(CURRENT_DIR, "src/logs/signal_log.jsonl")   # bf
 
-print(JERRY_LOG_PATH)
 
 # main home page
 @app.route("/")
@@ -17,10 +17,18 @@ def home():
 # beter to have events page to autoupdate homne
 @app.route("/events")
 def get_events():
+    return _read_jsonl(JERRY_LOG_PATH)
+
+
+@app.route("/signal")
+def get_signal():
+    return _read_jsonl(SIGNAL_LOG_PATH, tail=100)
+
+def _read_jsonl(path, tail=None):
     events = []
 
-    if os.path.exists(JERRY_LOG_PATH):
-        with open(JERRY_LOG_PATH, "r") as file:
+    if os.path.exists(path):
+        with open(path, "r") as file:
             for line in file:
                 try:
                     events.append(json.loads(line))
@@ -29,6 +37,8 @@ def get_events():
     else:
         print("Can't find log file")
 
+    if tail:
+        events = events[-tail:]
     return fk.jsonify(events)
 
-app.run(port=5000)
+app.run(port=5000, debug=False)

@@ -250,6 +250,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
         def on_close(self, event):
             self.request_shutdown()
 
+
         def update_log(self, confidence):
             event = {
                 "time": datetime.now().isoformat(),
@@ -263,6 +264,21 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             log_file = os.path.join(log_dir, "jerry_log.jsonl")
 
             with open(log_file, "a") as f:
+                f.write(json.dumps(event) + "\n")
+
+
+        def update_signal_log(self, detection_rate, n_active_bins):
+            """
+           Use to put bf data so we can use this in the gui
+            """
+            event = {
+                "time"           : datetime.now().isoformat(),
+                "detection_rate" : round(detection_rate, 3),
+                "active_bins"    : n_active_bins,
+            }
+            log_dir  = os.path.join(os.path.dirname(__file__), "../../src/logs")
+            os.makedirs(log_dir, exist_ok=True)
+            with open(os.path.join(log_dir, "signal_log.jsonl"), "a") as f:
                 f.write(json.dumps(event) + "\n")
             
 
@@ -369,6 +385,9 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 
                 rat_detected, detection_rate, active_bins = self.detector.updateDetection(bf_output_1d)
 
+                # update bf log:
+                self.update_signal_log(detection_rate, n_active_bins)               
+
                 if rat_detected:
                     colour = "red"
                     label = f"Jerry Detected ({detection_rate:.0%} of frames)!"
@@ -393,20 +412,24 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 self.det_ax.set_facecolor(colour)
                 self.det_fig.canvas.draw_idle()
 
-
-                # # FPS update
-                # current_time = time.time()
-                # self.frame_counter += 1
-                # if current_time - self.last_fps_time >= 1.0:
-                #     self.fps = self.frame_counter / (current_time - self.last_fps_time)
-                #     self.last_fps_time = current_time
-                #     self.frame_counter = 0
-
-
                 self.im.set_array(to_plot.ravel())
                 
                 self.fig.canvas.draw_idle() 
                 QtWidgets.QApplication.processEvents()
+
+                # ------------------------------------------
+                # NOTE: Jan - try to put bf output on the gui
+                # ---------------------------------------------
+                bf_path = os.path.join(
+                    os.path.dirname(__file__),
+                    "../../jerry_gui/static/current_bf.png"
+                )
+
+                self.fig.savefig(
+                    bf_path,
+                    dpi=100,
+                    bbox_inches='tight'
+                )
  
                 self.msg_count.clear()
                 plt.pause(0.001)
