@@ -10,8 +10,6 @@ from utils.read_com import find_com_port
 import utils.utility as utility
 
 from streaming_base.streaming import realtime_streaming_task3
-from streaming_base.streaming import realtime_streaming_track
-
 '''
     The primary things to change in this file are paths to various locations on your computer (mainly inside this repo itself) at the bototm of this file.
     Technically, you do not have to change anything this this file other thatn those paths (so that we can extract chirp parameters correctly and so on).

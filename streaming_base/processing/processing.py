@@ -3,7 +3,6 @@ from scipy.signal import convolve2d
 from scipy.ndimage import median_filter
 
 from sklearn.cluster import DBSCAN
-from streaming_base.gtrack.config import Detection
 
 # implement this function to accumulate the time domain data 
 def get_accumulated_time_data(current_range_data, range_fft_s):
@@ -367,12 +366,6 @@ def get_freq(time_data, periodicity):
     return fft_phase, freqs, bpm
 
 
-#   -------------------------------------------------------------------------------------------------------------------
-#                       Tracking-pipeline additions (ported from human tracking)
-#
-#   Used by the "tracking" mode in prod_dca.py:
-#       range FFT -> bg_sub -> Doppler FFT -> CFAR on RD map -> sparse beamform -> Detection list -> GTrack
-#   -------------------------------------------------------------------------------------------------------------------
 
 def cfar_ca_2d_mask(power_map,
                     num_train_range: int = 10,
@@ -443,21 +436,3 @@ def beamform_2d_s(rd_cube, radar_params, x_locs, dets):
         beam_power = np.abs(np.sum(beamformed, axis=-1))
         sph_pwr[:, r] = np.maximum(sph_pwr[:, r], beam_power)
     return sph_pwr
-
-
-def make_detection_list(bf_map, phi, r_idxs, min_snr_threshold, max_points=None):
-    """Convert (num_phi, num_range) magnitude map into a list of Detection objects."""
-    mask = bf_map >= min_snr_threshold
-    if not mask.any():
-        return []
-    j_idx, i_idx = np.nonzero(mask)
-    snr_vals = bf_map[j_idx, i_idx]
-    if max_points is not None and snr_vals.size > max_points:
-        top_k = np.argpartition(snr_vals, -max_points)[-max_points:]
-        j_idx = j_idx[top_k]
-        i_idx = i_idx[top_k]
-        snr_vals = snr_vals[top_k]
-    return [
-        Detection(r=float(r_idxs[i]), az=float(phi[j]), v=0.0, snr=float(s))
-        for i, j, s in zip(i_idx, j_idx, snr_vals)
-    ]

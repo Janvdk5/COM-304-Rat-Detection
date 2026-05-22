@@ -169,24 +169,8 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.fig.canvas.mpl_connect('close_event', self.on_close)
             self.accept('escape', self.request_shutdown)   # optional: press Esc to stop cleanly
 
-            self.record_video = True        # NOTE : True to save video, False otherwise
-            self.video_writer = None        # NOTE : Video "Recorder" Instance
-
             timestamp = datetime.today().strftime("%m-%d-%Y_%H-%M-%S")
 
-
-            if self.record_video:
-
-                # make sure directory in which we save videos exists within main dir
-                os.makedirs("videos", exist_ok=True)
-
-                file_name = f"bf_{cfg_radar['exp_name']}_{timestamp}.mp4"
-
-                self.video_writer = FFMpegWriter(fps=10, bitrate=1800)
-                self.video_writer.setup(self.fig, os.path.join("videos", file_name), dpi=120)
-                print("Video recording started.")
-
-            #   ----------------------------------------------------------------
             
 
             # ----------------------------------------------------
@@ -243,7 +227,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
         def request_shutdown(self, event=None):
             """
-            Handles ongoing visualisation/video recording tasks termination.
+            Handles ongoing visualisation recording tasks termination.
             """
             if self.is_closing:
                 return
@@ -258,13 +242,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 plt.close(self.fig)
             except Exception:
                 pass
-
-            
-            # Make sure to properly handle video file that is being recorded
-            if self.video_writer is not None:
-                self.video_writer.finish()
-                self.video_writer = None
-                print("Video recording saved.")
 
             # Shut down Panda3D so app.run() can return
             self.destroy()
@@ -293,7 +270,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
         def updateTask(self, task):
             """
-            Updates visualiser to newly acquired frame. Also handles video recording (of the real time data visualiser).
+            Updates visualiser to newly acquired frame.
             """
 
             if self.stop_event.is_set():
@@ -430,12 +407,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 
                 self.fig.canvas.draw_idle() 
                 QtWidgets.QApplication.processEvents()
-
-
-                # grabs the current displayed frame (from the visualiser) and appends it to the video recording
-                # (note to self : check the doc of '.grab_frame()')
-                if self.video_writer is not None:
-                    self.video_writer.grab_frame()
  
                 self.msg_count.clear()
                 plt.pause(0.001)
