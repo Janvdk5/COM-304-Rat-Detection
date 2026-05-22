@@ -7,9 +7,63 @@ import os
 import cv2
 from datetime import datetime
 import json
+from collections import deque
 
 # import the producer (should not import GUI libs)
 from streaming_base.streaming.prod_dca import producer_real_time_1843
+
+
+# -------------------------------
+# NOTE: Jan - new detector attempt
+# -------------------------------
+class JerryClassifier:
+    def __init__(self, range_bins, sensitivity=1.0, min_active_bins=1, frame_window=10, num_frames_thresh=0.25):
+        self.range_bins = range_bins
+        self.sensitivity = sensitivity
+        self.min_active_bins = min_active_bins
+        self.active_frames = deque(maxlen=frame_window) #use queue so we can easy keep moving window
+        self.num_frames_thresh = num_frames_thresh
+                
+    def updateDetection(self, bf_output):
+        active_bins = 0
+        jerry_detected = False
+
+        # setup noise baseline#
+        outside_roi = np.delete(np.abs(bf_output), self.range_bins)
+        nonzero_vals = outside_roi[outside_roi > 0]
+        
+        # get of zeroing out issues
+        if len(nonzero_vals) > 0:
+            noise_floor = float(np.mean(nonzero_vals))
+        else: 
+            noise_floor = 1.0
+
+        #noise_floor = np.median(np.abs(bf_output)) 
+        bin_threshold = self.sensitivity * noise_floor
+
+        # each bin above thresh?
+        roi = np.abs(bf_output[self.range_bins])
+        active_bins = int(np.sum(roi > bin_threshold))
+        
+        # Is frame good?
+        if active_bins >= self.min_active_bins:
+            active_frame_flag = 1
+        else:
+            active_frame_flag = 0
+
+        # enough prev frames agree?
+        self.active_frames.append(active_frame_flag)
+        detection_rate = float(np.mean(self.active_frames))
+
+        if detection_rate >= self.num_frames_thresh:
+            jerry_detected = True
+        
+        print(f"noise={noise_floor:.4f}  threshold={bin_threshold:.4f}  ")
+        print(f"roi_max={roi.max():.4f}  active_bins={active_bins}  ")
+        print(f"detection_rate={detection_rate:.2f}")
+
+
+        return jerry_detected, detection_rate, active_bins
 
 # -------------------------
 # Visualization code is moved into a function so it is only imported/run
@@ -64,8 +118,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
     # Minimum absolute peak height (normalized) required before drawing a
     # per-object marker on top of the heatmap.
     MARKER_MIN_AMP       = 0.25
-    # -------------------------------------------------------------------
-
+    # -------------------------------------------------------------------       
 
     class MyApp(ShowBase):
         def __init__(self, queue_1, cfg_radar, stop_event):
@@ -76,6 +129,22 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
             self.phi = cfg_radar["phi"]
             self.r_idxs = cfg_radar["range_idx"]
+
+            # -------------------------------------------
+            # NOTE: Jan - classifier vars
+            # -------------------------------------------
+            """pipe_center_bin = int(PIPE_Y_M / M_PER_BIN)
+            pipe_half_thickness = int((PIPE_Y_THICKNESS_M / 2) / M_PER_BIN)
+            pipe_range_bins = np.arange(
+                max(0, pipe_center_bin - pipe_half_thickness),
+                min(len(self.r_idxs), pipe_center_bin + pipe_half_thickness + 1)
+            )"""
+            n_range_bins = len(self.r_idxs)
+            pipe_range_bins = np.arange(15, min(40, n_range_bins))
+            #pipe_range_bins = np.arange(15, 40) # try open up range more
+
+            self.detector = JerryClassifier(range_bins=pipe_range_bins)
+            # -------------------------------------------------
 
             self.fig = plt.figure(figsize=(6, 6))
             self.ax = self.fig.add_subplot(111, projection='polar')
@@ -123,11 +192,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             # ----------------------------------------------------
             # NOTE: Jan - jerry detector classifier output
             # -------------------------------------------------------
-            dirname = os.path.dirname(os.path.abspath(__file__))
-
-            #model_path = os.path.abspath(os.path.join(dirname, "../../data_exploration/model"))
-            model_path = os.path.abspath(os.path.join(dirname, "../../data_exploration/model/jerry_detector_doppler.joblib")) 
-            self.classifier = joblib.load(model_path)
 
             # setup new window for output
             self.det_fig, self.det_ax = plt.subplots()
@@ -324,21 +388,13 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # ------------------------------------
                 # NOTE: Jan - jerry detector classifier working
                 # ------------------------------------
-                frame = np.abs(bf_1)
-           
-                x = frame.reshape(1, -1).astype(np.float64, copy=True)
-                x[~np.isfinite(x)] = 0.0
+                bf_output_1d = np.abs(bf_1).max(axis=0) # need 1d
+                
+                rat_detected, detection_rate, active_bins = self.detector.updateDetection(bf_output_1d)
 
-
-                print("x.shape", x.shape)
-
-                pred = self.classifier.predict(x) # always giving binary
-                proba = self.classifier.predict_proba(x)
-                confidence = proba[0,1]
-
-                if confidence > 0.8:
+                if rat_detected:
                     colour = "red"
-                    label = "Jerry Detected!"
+                    label = f"Jerry Detected ({detection_rate:.0%} of frames)!"
 
                     # Use relative path from current file location
                     log_dir = os.path.join(os.path.dirname(__file__), "../../src/logs")
@@ -346,20 +402,17 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                     log_file = os.path.join(log_dir, "jerry_log.txt")
 
                     with open(log_file, "a") as f:
-                        f.write(f"{datetime.now()} - Jerry detected ({confidence:.2f})\n")
+                        f.write(f"{datetime.now()} - Jerry detected in {detection_rate:.0%} of frames\n")
 
                     # try json logger
-                    self.update_log(confidence)
+                    self.update_log(detection_rate)
 
                 else:
-                    label = "No Jerry"
+                    label = f"No Jerry ({detection_rate:.0%} of frames)"
                     colour = "green"
-                
-                print(f"old prediction: {pred}")
-                print(f"probability: {proba}")
 
                 # new window
-                self.det_text.set_text(f"{label}\n({confidence:.2f})")
+                self.det_text.set_text(label)
                 self.det_ax.set_facecolor(colour)
                 self.det_fig.canvas.draw_idle()
 
@@ -395,6 +448,8 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
     # instantiate and run (this stays in the main process)
     app = MyApp(q1, cfg_radar, stop_event)
     app.run()
+
+
 
 
 # -------------------------
