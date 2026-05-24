@@ -393,6 +393,12 @@
                 <h3 id="status"> Loading ...</h3>
                 <h3 id="24h_count"> Detections Over last 24hrs: 0</h3>
             </div>
+                                    
+            <!-- bf 1-->>
+            <div class="card">
+                <h3>Live Beamforming Output</h3>
+                <img id="bfPlot" src="{{ url_for('static', filename='current_bf.png') }}" width="600">
+            </div>
 
             <!-- plot 1-->>
             <div class="card">
@@ -410,12 +416,6 @@
                 <ul id="jerryDetectList"></ul>
             </div>
 
-            
-            <!-- bf 1-->>
-            <div class="card">
-                <h3>Live Beamforming Output</h3>
-                <img id="bfPlot" src="{{ url_for('static', filename='current_bf.png') }}" width="300">
-            </div>
         </div>
 
         <!-- jerry meme recent sighting alert-->
@@ -427,6 +427,9 @@
 
 
         <script>
+            Chart.defaults.color = "lime";
+            Chart.defaults.borderColor = "#222";
+
             // function to plot jerry dtection data
             let chart;
             function updateChart(events) {
@@ -441,18 +444,43 @@
                 const labels = Object.keys(counts);
                 const data = Object.values(counts);
 
-                if (chart) chart.destroy();
+                if (!chart) {
 
-                chart = new Chart(document.getElementById("chart"), {
-                    type: "line",
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: "Detections over time",
-                            data: data
-                        }]
-                    }
-                });
+                    chart = new Chart(document.getElementById("chart"), {
+                        type: "line",
+
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: "Detections over time",
+                                data: data,
+                                borderColor: "lime",
+                                backgroundColor: "rgba(0,255,0,0.15)",
+                                tension: 0.3
+                            }]
+                        },
+
+                        options: {
+                            responsive: true,
+                            animation: false,
+                            scales: {
+                                x: {ticks: {color: "lime"},
+                                    grid: {color: "#222"}},
+                                y: {ticks: {color: "lime"},
+                                    grid: {color: "#222"}}
+                                },
+                            plugins: { 
+                                legend: {labels: {color: "lime"}}
+                            }
+                        }
+                    });
+
+                } else {
+                    // UPDATE EXISTING CHART
+                    chart.data.labels = labels;
+                    chart.data.datasets[0].data = data;
+                    chart.update("none"); // no animation
+                }
             }
 
             // chart updater for the bf
@@ -465,18 +493,40 @@
                 const data   = frames.map(e => e.detection_rate);
 
                 // kill refresh animation
-                if (signalChart) signalChart.destroy();
+                if (!signalChart) {
 
-                signalChart = new Chart(document.getElementById("signalChart"), {
-                    type: "line",
-                    data: {
-                        labels,
-                        datasets: [{
-                            label: "Detection rate (rolling window)",
-                            data: data
-                        }]
-                    },
-                });
+                    signalChart = new Chart(document.getElementById("signalChart"), {
+                        type: "line",
+
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: "Detection rate",
+                                data,
+                                borderColor: "lime",
+                                backgroundColor: "rgba(0,255,255,0.15)",
+                                tension: 0.3
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            animation: false,
+                            scales: {
+                                x: {ticks: {color: "lime"},
+                                    grid: {color: "#222"}},
+                                y: {ticks: {color: "lime"},
+                                    grid: {color: "#222"}}
+                                },
+                            plugins: { 
+                                legend: {labels: {color: "lime"}}
+                            }
+                        }
+                    });
+                } else {
+                    signalChart.data.labels = labels;
+                    signalChart.data.datasets[0].data = data;
+                    signalChart.update("none");
+                }
             }
 
             // alert of recent rate detection
@@ -490,7 +540,7 @@
 
             function refreshBF() {
                 const img = document.getElementById("bfPlot");
-                img.src = "/static/current_bf.png"?t=" + new Date().getTime()";
+                img.src = "/static/current_bf.png?t=" + new Date().getTime();
             }
 
 
@@ -517,8 +567,18 @@
 
                 // if json empty, no evets detected
                 if (events.length === 0) {
-                    document.getElementById("status").innerText = "Jerry has not been detected yet ...";
-                    return
+                    document.getElementById("status").innerText =
+                        "Jerry has not been detected yet ...";
+
+                    // hide loading screen before returning incase o fno data
+                    loading.style.transition = "opacity 1s ease";
+                    loading.style.opacity = "0";
+
+                    setTimeout(() => {
+                        loading.style.display = "none";
+                    }, 1000);
+
+                    return;
                 }
 
                 document.getElementById("status").innerText = "Jerry has been detected";
