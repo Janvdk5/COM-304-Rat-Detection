@@ -367,3 +367,12 @@
 2026-05-22 13:03:58.461014 - Jerry detected in 50% of frames
 2026-05-22 13:03:58.617530 - Jerry detected in 40% of frames
 2026-05-22 13:03:58.780109 - Jerry detected in 30% of frames
+2026-05-25 23:18:01.934904 - Jerry detected in 100% of frames
+2026-05-25 23:18:03.516579 - Jerry detected in 50% of frames
+2026-05-25 23:18:04.645732 - Jerry detected in 33% of frames
+2026-05-25 23:18:05.629686 - Jerry detected in 25% of frames
+2026-05-25 23:18:10.254647 - Jerry detected in 25% of frames
+2026-05-25 23:18:48.555613 - Jerry detected in 30% of frames
+2026-05-25 23:18:49.381148 - Jerry detected in 30% of frames
+2026-05-25 23:19:11.794914 - Jerry detected in 30% of frames
+2026-05-25 23:24:10.144491 - Jerry detected in 30% of frames

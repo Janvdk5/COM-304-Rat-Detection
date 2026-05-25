@@ -386,7 +386,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 rat_detected, detection_rate, active_bins = self.detector.updateDetection(bf_output_1d)
 
                 # update bf log:
-                self.update_signal_log(detection_rate, n_active_bins)               
+                self.update_signal_log(detection_rate, active_bins)               
 
                 if rat_detected:
                     colour = "red"
