@@ -205,16 +205,22 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 snr = energy / (np.median(energy) + 1e-6)
                 valid = snr > 2.0
 
-                best_vel = np.argmax(valid, axis=0)                # (range_bins,)
-                r_idx = np.arange(doppler.shape[2])
-                bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
+
+
+                masked_energy = np.where(valid, energy, 0.0)        # (N_CHIRPS, range_bins)
+                best_vel = np.argmax(masked_energy, axis=0)         # strongest valid bin per range
+                r_idx = np.arange(np.abs(doppler).shape[2])
+                # bf_input = doppler_smoothed[:, best_vel, r_idx]   # BUG: doppler_smoothed=abs() is REAL -> drops phase -> every target pinned to center (90 deg)
+                bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX -- phase is required to resolve off-center angles
 
                 # Noise mask: only keep range bins whose peak moving-power exceeds an
                 # adaptive noise floor. Without this, every empty range bin still picks
                 # *some* argmax velocity (just noise) and gets beamformed to a random angle,
                 # producing scattered speckle across the whole heatmap.
                 peak_power = power[best_vel, r_idx]                # (range_bins,)
-                noise_floor = np.median(peak_power) * 5.0          # 5x median (tune: 2–5)//each step up kills 0.14m/s of velocity
+                # OLD (revert here if the rat starts dropping out):
+                # noise_floor = np.median(peak_power) * 5.0
+                noise_floor = np.median(peak_power) * 8.0          # 8x median: stricter, drops weak wall returns
                 mask = peak_power > noise_floor                    # (range_bins,) bool
                 bf_input = bf_input * mask[np.newaxis, :]
 
