@@ -420,6 +420,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # ------------------------------------------
                 # NOTE: Jan - try to put bf output on the gui
                 # ---------------------------------------------
+                """
                 bf_path = os.path.join(
                     os.path.dirname(__file__),
                     "../../jerry_gui/static/current_bf.png"
@@ -430,6 +431,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                     dpi=100,
                     bbox_inches='tight'
                 )
+                """
  
                 self.msg_count.clear()
                 plt.pause(0.001)
