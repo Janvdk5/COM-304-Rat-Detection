@@ -17,7 +17,7 @@ from streaming_base.streaming.prod_dca import producer_real_time_1843
 # NOTE: Jan - new detector attempt
 # -------------------------------
 class JerryClassifier:
-    def __init__(self, range_bins, sensitivity=1.0, min_active_bins=1, frame_window=10, num_frames_thresh=0.25):
+    def __init__(self, range_bins, sensitivity=1.0, min_active_bins=1, frame_window=10, num_frames_thresh=0.35):
         self.range_bins = range_bins
         self.sensitivity = sensitivity
         self.min_active_bins = min_active_bins

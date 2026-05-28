@@ -393,12 +393,6 @@
                 <h3 id="status"> Loading ...</h3>
                 <h3 id="24h_count"> Detections Over last 24hrs: 0</h3>
             </div>
-                                    
-            <!-- bf 1-->>
-            <div class="card">
-                <h3>Live Beamforming Output</h3>
-                <img id="bfPlot" src="{{ url_for('static', filename='current_bf.png') }}" width="600">
-            </div>
 
             <!-- plot 1-->>
             <div class="card">
@@ -559,7 +553,7 @@
 
                 updateChart(events)
                 updateSignalChart()
-                refreshBF()
+                //refreshBF()
 
                 // running list of all detection events
                 const list = document.getElementById("jerryDetectList");
