@@ -391,18 +391,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                     colour = "red"
                     label = f"Jerry Detected ({detection_rate:.0%} of frames)!"
 
-                    # Use relative path from current file location
-                    log_dir = os.path.join(os.path.dirname(__file__), "../../src/logs")
-                    os.makedirs(log_dir, exist_ok=True)
-                    log_file = os.path.join(log_dir, "jerry_log.txt")
-
-                    with open(log_file, "a") as f:
-                        f.write(f"{datetime.now()} - Jerry detected in {detection_rate:.0%} of frames\n")
-
-                    # try json logger
-                    self.update_log(detection_rate)
-                    self.update_signal_log(detection_rate, active_bins)
-
                 else:
                     label = f"No Jerry ({detection_rate:.0%} of frames)"
                     colour = "green"
@@ -416,22 +404,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 
                 self.fig.canvas.draw_idle() 
                 QtWidgets.QApplication.processEvents()
-
-                # ------------------------------------------
-                # NOTE: Jan - try to put bf output on the gui
-                # ---------------------------------------------
-                """
-                bf_path = os.path.join(
-                    os.path.dirname(__file__),
-                    "../../jerry_gui/static/current_bf.png"
-                )
-
-                self.fig.savefig(
-                    bf_path,
-                    dpi=100,
-                    bbox_inches='tight'
-                )
-                """
  
                 self.msg_count.clear()
                 plt.pause(0.001)
