@@ -3,6 +3,8 @@
 ## Info
 This branch uses the same logistic regresiion model but with all of kaspers doppler filtering
 
+all the ml info can be foubnd in data_exploration/ folder 
+
 ## Usage
 data_exploration/model/jerry_detector_doppler.joblib has the correct model version
 
