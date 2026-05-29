@@ -1,4 +1,5 @@
-# COM-304-RADARS-Rat-detection
+# COM-304 Radars Rat Detection Project
+![1780053419133](image/README/1780053419133.png)
 This repository contains the code for the COM-304 project on using mmWave radar for through-wall rat detection. The project focuses on developing a real-time pipeline for detecting rats in a pipe using radar data, without relying on machine learning models. Find a full explanation of the project in the final report pdf available on the repo.
 
 ## Info
