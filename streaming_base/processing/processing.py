@@ -1,3 +1,8 @@
+# Info:
+# This file contains the main processing functions for the radar data, 
+# including range FFT, beamforming, CFAR detection and doppler helps..
+# -----
+
 import numpy as np
 from scipy.signal import convolve2d
 from scipy.ndimage import median_filter
@@ -261,109 +266,6 @@ def beamform_2d(beat_freq_data, radar_params, x_locs):
         sph_pwr[:, r] = np.maximum(sph_pwr[:, r], np.abs(np.sum(beamformed_signal, axis=-1)))
 
     return sph_pwr
-
-
-
-
-
-#   -------------------------------------------------------------------------------------------------------------------
-#   -------------------------------------------------------------------------------------------------------------------
-#                                   task4_vital_signs_TODO :  Processing Methods
-#   -------------------------------------------------------------------------------------------------------------------
-#   -------------------------------------------------------------------------------------------------------------------
-
-def get_br_hr(summed_range_data, all_range_data, second_p):
-    """
-    Extracts the phase data for heart rate and breathing monitoring.
-
-    Parameters
-    ----------
-    summed_range_data : np.array 
-        The current range data calculated (a single frame). Use this to extract the location of the reflector.
-    current_range_data : np.ndarray
-        The range FFT data over time (multiple frames). Size is number of frames x number of samples per chirp. 
-    second_p : float 
-        A reference value to save each time to faciliate real time plotting. (No need to touch this). 
-
-    Returns
-    -------
-    unwrapped_phase : np.ndarray
-        The unwrapped phase over time (corresponds to distance over time). 
-    second_p : float 
-        A updated reference value to save each time to faciliate real time plotting.  
-    max_idx : int 
-        The maximum index (returend for plotting).
-    """ 
-    # find max index between 0.2 and 1 meter, you can adjust as needed
-    max_lim = int(1 // 0.1)
-    min_lim = int(0.1 // 0.1)
-
-    max_idx = np.argmax(summed_range_data[min_lim:max_lim]) + min_lim
-    
-    # TODO: implement the phase extraction of current_range_data at max_idx 
-    # (do not forget to unwrap the phase and convert to distance)
-    #unwrapped_phase = np.zeros(all_range_data.shape[0])
-    for i in range(all_range_data.shape[0]):
-        unwrapped_phase[i] = np.angle(all_range_data[i, max_idx])
-    
-    unwrapped_phase = np.unwrap(unwrapped_phase)
-
-    # to dist
-    unwrapped_phase = unwrapped_phase * (3/385) / (2 * np.pi)   # FIXED previous : (3/785) / (2 * np.pi)
-
-    # just brings the average down to 0 of the phase signal
-    unwrapped_phase = unwrapped_phase - np.mean(unwrapped_phase)
-
-    return unwrapped_phase, second_p, max_idx
- 
-# Cacluate the frequency domain information from the time domain phase data.
-def get_freq(time_data, periodicity):
-    """
-    Performs frequency analysis to extract heart rate in BPM. Remember, time_data is a real signal,
-    meaning half of the fft output will be symmetric. You only need to look at the first half.
-
-    Parameters
-    ----------
-    time_data : np.ndarray 
-        The time domain phase data, of size number of frames.
-    periodicity: float
-        Periodicity of the frames (how often a frame is captured).
-
-    Returns
-    -------
-    fft_phase : np.ndarray
-        The frequency data. Size must be the same as freqs.
-    freqs : np.ndarray
-        The frequency bins associated with each value in fft_phase. 
-        This is basically the frequency associated with each value from the output of the FFT.
-        It is related to the sampling frequency (aka how often we are capturing frames (periodicity in the Lua file)) and the size of the output of the FFT.
-    second_p : float 
-        A updated reference value to save each time to faciliate real time plotting.  
-    """  
-    N = len(time_data)
-
-    # calculate frequency information and the corresponding frequency bins
-    N = len(time_data)
-    fft_phase = abs(np.fft.fft(time_data))
-    freqs = np.fft.fftfreq(N, periodicity * 0.001)
-    freq_spacing = np.diff(freqs)[0]
-
-    # lets filter out values that are less than the most likely heart rate (15 bpm) and greater than 250 bpm
-    # Note you can adjust this if you would like
-    min_freq = int((15 / 60) / freq_spacing)
-    max_freq = int((250 / 60) / freq_spacing)
-    # here we will crop out half the spectrum since our signal is real
-    fft_phase = fft_phase[min_freq:max_freq]
-    freqs = freqs[min_freq:max_freq]
-
-    # extract the max frequency (note, there will be noise, so this may or may not work very well
-    # you might want to extract a set of max frequencies) 
-    max_freq_ind = np.argpartition(fft_phase, -2)[-2:] # this prints out the last 2
-    max_freq_ind = max_freq_ind[np.argsort(fft_phase[max_freq_ind])[::-1]]
-
-    # convert from frequency to BPM
-    bpm = freqs[max_freq_ind] * 60
-    return fft_phase, freqs, bpm
 
 
 
