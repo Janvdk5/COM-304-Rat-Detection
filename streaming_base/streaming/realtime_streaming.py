@@ -1,3 +1,7 @@
+# Info:
+#
+# ------------------------------------
+
 # top-level: only safe, non-GUI imports
 import time
 import joblib
@@ -17,6 +21,24 @@ from streaming_base.streaming.prod_dca import producer_real_time_1843
 # NOTE: Jan - new detector attempt
 # -------------------------------
 class JerryClassifier:
+    """
+    Simple heuristic classifier to detect presence of "Jerry" the rat in the pipe ROI.
+
+    Parameters:
+    - range_bins: list or array of range bin indices corresponding to the pipe ROI
+    - sensitivity: multiplier on noise floor to set detection threshold (lower = more sensitive)
+    - min_active_bins: minimum number of bins in the ROI that must exceed the threshold for a frame to be considered "active"
+    - frame_window: number of recent frames to consider in the moving window for detection
+    - num_frames_thresh: fraction of frames in the window that must be active to trigger detection
+        - NB: for wood + foam, set to 0.15
+
+    Funcs:
+    - init: initializes the classifier with the specified parameters and an empty deque for recent frame activity
+    - updateDetection(bf_output): takes the latest beamforming output (1D array of length num_bins), applies the detection logic, and returns:
+        - jerry_detected: boolean indicating if Jerry is detected in the current window
+        - detection_rate: fraction of frames in the window that are active (for logging/analysis)
+        - active_bins: number of bins in the current frame's ROI that exceed the threshold (for logging/analysis)
+    """
     def __init__(self, range_bins, sensitivity=1.0, min_active_bins=1, frame_window=10, num_frames_thresh=0.35):
         self.range_bins = range_bins
         self.sensitivity = sensitivity
@@ -65,12 +87,18 @@ class JerryClassifier:
 
         return jerry_detected, detection_rate, active_bins
 
-# -------------------------
-# Visualization code is moved into a function so it is only imported/run
-# in the main process (no GUI imports at module top-level)
-# -------------------------
+
+
 def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
-    # GUI imports done here (main process only)
+    """
+    Runs the real-time visualization in the main process. 
+
+    Params:
+    - q1: multiprocessing.Queue for receiving data from the producer
+    - cfg_radar: radar configuration dictionary
+    - cfg_cfar: CFAR configuration dictionary
+    - stop_event: multiprocessing.Event to signal stopping of the visualization
+    """
     import warnings
     warnings.simplefilter("ignore", UserWarning)
 
@@ -99,28 +127,21 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
     )
     from streaming_base.utils.utils import cart2pol
 
-    # -------------------------------------------------------------------
     # PIPE DETECTION CONFIG
-    # -------------------------------------------------------------------
-    # The "pipe" is modeled as a rectangular ROI lying *perpendicular* to
-    # the radar's line of sight. In the data's Cartesian frame the radar
-    # looks along +y, so the pipe runs along x at a fixed distance y.
-    # Tune these to match your physical setup.
-    M_PER_BIN            = 0.045352603795783  # meters per range bin
-    PIPE_Y_M             = 1.20               # distance from radar to pipe centre [m]
-    PIPE_Y_THICKNESS_M   = 0.20               # pipe cross-section depth along y [m]
-    PIPE_X_HALFWIDTH_M   = 0.60               # half-length of pipe along x  [m]
-    # Detection threshold on the normalized beamforming magnitude inside
-    # the pipe ROI. Range [0, 1]; lower => more sensitive.
-    DETECTION_THRESHOLD  = 0.35
-    # Temporal smoothing for the in-ROI amplitude (0 = no smoothing, 1 = frozen).
-    DETECTION_EMA_ALPHA  = 0.5
-    # Minimum absolute peak height (normalized) required before drawing a
-    # per-object marker on top of the heatmap.
-    MARKER_MIN_AMP       = 0.25
-    # -------------------------------------------------------------------       
+    # The "pipe" is modeled as a rectangular ROI lying perpendicular to radar
+    DETECTION_THRESHOLD  = 0.35     # the pipe ROI. Range [0, 1]; lower => more sensitive.
+    DETECTION_EMA_ALPHA  = 0.5      # Temporal smoothing for the in-ROI amplitude (0 = no smoothing, 1 = frozen).
+    MARKER_MIN_AMP       = 0.25     # Minimum absolute peak height (normalized) required before drawing a per-object marker on top of the heatmap.       
 
     class MyApp(ShowBase):
+        """
+        The main application class for the real-time radar visualization. Inherits from Panda3D's ShowBase.
+
+        Parameters:
+        - queue_1: multiprocessing.Queue for receiving data from the producer
+        - cfg_radar: radar configuration dictionary (contains parameters like phi, range_idx, etc.)
+        - stop_event: multiprocessing.Event to signal stopping of the visualization
+        """
         def __init__(self, queue_1, cfg_radar, stop_event):
             ShowBase.__init__(self)
             self.q1 = queue_1
@@ -130,39 +151,17 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.phi = cfg_radar["phi"]
             self.r_idxs = cfg_radar["range_idx"]
 
-            # -------------------------------------------
-            # NOTE: Jan - classifier vars
-            # -------------------------------------------
-            """pipe_center_bin = int(PIPE_Y_M / M_PER_BIN)
-            pipe_half_thickness = int((PIPE_Y_THICKNESS_M / 2) / M_PER_BIN)
-            pipe_range_bins = np.arange(
-                max(0, pipe_center_bin - pipe_half_thickness),
-                min(len(self.r_idxs), pipe_center_bin + pipe_half_thickness + 1)
-            )"""
+            # range the detector bins so we focus on pipe area
             n_range_bins = len(self.r_idxs)
             pipe_range_bins = np.arange(15, min(40, n_range_bins))
-            #pipe_range_bins = np.arange(15, 40) # try open up range more
-
             self.detector = JerryClassifier(range_bins=pipe_range_bins)
-            # -------------------------------------------------
 
             self.fig = plt.figure(figsize=(6, 6))
             self.ax = self.fig.add_subplot(111, projection='polar')
             self.ax.set_ylabel('')
-            # vmax controls the colormap saturation point. The rat is a low-RCS
-            # target whose normalized return tends to sit well below 0.3, so the
-            # old 0.3 ceiling made it look very dim. Lowering vmax makes faint
-            # returns much brighter (everything above vmax saturates the same red).
             self.im = configure_ax_bf(self.ax, self.phi, self.r_idxs, 0, 0.1)
 
-
-            #   ----------------------------------------------------------------
-            #
-            #   NOTE : (kerim -- 4/21/2026)
-            #   
-            #       -- added these to handle stop event nicely in visualisation.
-            #
-
+            # stop even nicely with ctrl+c or window close (instead of hard kill)
             self.stop_event = stop_event
             self.is_closing = False
 
@@ -171,19 +170,11 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
             timestamp = datetime.today().strftime("%m-%d-%Y_%H-%M-%S")
 
-            
 
-            # ----------------------------------------------------
-            # NOTE: Jan - jerry detector classifier output
-            # -------------------------------------------------------
-
-            # setup new window for output
+            # setup new window for detector output
             self.det_fig, self.det_ax = plt.subplots()
             self.det_text = self.det_ax.text(0.5, 0.5, "",
                                              ha='center', va='center', fontsize=20)
-            #self.det_ax.axis("off")
-
-            # -------------------------------------------------------
             
             self.last_frame_time = time.time()
             self.frame_counter = 0
@@ -207,10 +198,8 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
             self.last_artists = []
             num_ticks = 6
 
-            # Visual zoom: clip the polar plot to 0 - VIEW_RANGE_M meters so the
-            # rat is easier to make out. The producer still sends every range
-            # bin in bf_output -- only the *display* is cropped here.
-            VIEW_RANGE_M = 1.2
+            # Visual zoom: clip the polar plot to 0 
+            VIEW_RANGE_M = 1.2      # so the rat is easier to make out. 
             max_bin_visible = min(VIEW_RANGE_M / cfg_radar['range_res'], float(self.r_idxs.max()))
 
             # Radial ticks across the visible (clipped) range only
@@ -238,7 +227,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
             try:
                 import matplotlib.pyplot as plt
-                plt.ion()                           # NOTE : turns on interactive mode (create/show/update it as the program runs )
+                plt.ion()                     # NOTE : turns on interactive mode (create/show/update it as the program runs )
                 plt.close(self.fig)
             except Exception:
                 pass
@@ -252,6 +241,10 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
 
         def update_log(self, confidence):
+            """
+            Updates the log file with the latest detection confidence. 
+            Log files found in src/logs/jerry_log.jsonl
+            """
             event = {
                 "time": datetime.now().isoformat(),
                 "confidence": float(confidence),
@@ -269,7 +262,8 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
 
         def update_signal_log(self, detection_rate, n_active_bins):
             """
-           Use to put bf data so we can use this in the gui
+            Updates the signal log file with the latest detection metrics.
+            Log files found in src/logs/signal_log.jsonl
             """
             event = {
                 "time"           : datetime.now().isoformat(),
@@ -324,10 +318,6 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 # -------------------------------------------------------
                 # PIPE DETECTION
                 # -------------------------------------------------------
-                # Look at the magnitude of the beamforming output inside
-                # the pipe ROI. Normalize by the frame's global max so the
-                # threshold is scale-invariant, then smooth with an EMA to
-                # reject single-frame spikes.
                 Z_cart_mag = np.abs(Z_cart)
                 _zmax = Z_cart_mag.max()
                 if _zmax > 0:
@@ -376,10 +366,9 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 to_plot = np.abs(Z_polar)
                 mx = np.max(to_plot) if np.max(to_plot) != 0 else 1.0
                 to_plot /= mx 
-                to_plot = to_plot # NB: Need to be sure this matches model
 
                 # ------------------------------------
-                # NOTE: Jan - jerry detector classifier working
+                # NOTE: Jan - jerry detector classifier
                 # ------------------------------------
                 bf_output_1d = np.abs(bf_1).max(axis=0) # need 1d
                 
@@ -391,15 +380,7 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                     colour = "red"
                     label = f"Jerry Detected ({detection_rate:.0%} of frames)!"
 
-                    # Use relative path from current file location
-                    log_dir = os.path.join(os.path.dirname(__file__), "../../src/logs")
-                    os.makedirs(log_dir, exist_ok=True)
-                    log_file = os.path.join(log_dir, "jerry_log.txt")
-
-                    with open(log_file, "a") as f:
-                        f.write(f"{datetime.now()} - Jerry detected in {detection_rate:.0%} of frames\n")
-
-                    # try json logger
+                    # update logs for gui stream
                     self.update_log(detection_rate)
                     self.update_signal_log(detection_rate, active_bins)
 
@@ -416,35 +397,15 @@ def run_visualization(q1, cfg_radar, cfg_cfar, stop_event):
                 
                 self.fig.canvas.draw_idle() 
                 QtWidgets.QApplication.processEvents()
-
-                # ------------------------------------------
-                # NOTE: Jan - try to put bf output on the gui
-                # ---------------------------------------------
-                """
-                bf_path = os.path.join(
-                    os.path.dirname(__file__),
-                    "../../jerry_gui/static/current_bf.png"
-                )
-
-                self.fig.savefig(
-                    bf_path,
-                    dpi=100,
-                    bbox_inches='tight'
-                )
-                """
  
                 self.msg_count.clear()
                 plt.pause(0.001)
 
             return Task.cont        
 
-        # -------------------------------------------------------------------------
-
-
-    # instantiate and run (this stays in the main process)
+    # instantiate and run
     app = MyApp(q1, cfg_radar, stop_event)
     app.run()
-
 
 
 
@@ -455,62 +416,14 @@ def main(cfg_radar, cfg_cfar):
     q_main_1 = Queue(maxsize=1)
     stop_event = Event()
 
-
-    #   ----------------------------------------------------------------
-    #
-    #   NOTE : (kerim -- 4/21/2026)
-    #
-    #           -- Changed the 'daemon=True' to 'False'.
-    #           -- Python doc indicates that daemonic child processes are terminated when the parent exits, 
-    #           -- and terminate() on Windows uses TerminateProcess(), which does not run finally blocks or exit handlers
-    #
-    #   NOTE :  in previous setting, Windows/native-runtime behavior, Ctrl+C is causing a lower-level abort (forrtl: error (200)) 
-    #           -- before Python reaches that except
-    #
-
+    # launch the visualization in the main process, and handle graceful shutdown on Ctrl+C or window close
     producer = Process(
         target=producer_real_time_1843,
         args=(q_main_1, cfg_radar, cfg_cfar, 4096, 4098, "192.168.33.30", "192.168.33.180", stop_event),
         daemon=True
     )
-
-
-
-
     producer.start()
     print("Producer started, launching visualization in main process...")
-
-
-
-    #   ----------------------------------------------------------------
-    #
-    #   NOTE : apparently, trying to handle Ctrl+C is not great on windows, 
-    #          the final approach to "properly" close the program during runtime was to 
-    #          do trigger termination when user exists real-time visualiser (close tab).
-    #
-    #   
-    #   NOTE : (kerim -- 4/21/2026)
-    #           -- closing the plot window becomes the normal shutdown path
-    #
-    #           -- CHANGED THIS PART TO HANDLE KEYBOARD INTERRUPT CORRECTLY 
-    #           -- (so that file in which we save data closes correctly)
-    #   IDEA : main process responsible for shutdown (instead of child-process trying to catch Ctrl-C Interrupt)
-    #           -- python doc says 'terminate()' does not run 'finally:' blocks !
-    #          goal : let 'stop_event' terminate child process first and only force-terminate as fallback 
-    #
-
-    # run visualization (no GUI imports in child process)
-    # run_visualization(q_main_1, cfg_radar, cfg_cfar)
-
-    # if run_visualization ever returns, do cleanup
-    # try:
-    #     while True:
-    #         time.sleep(1)
-    # except KeyboardInterrupt:
-    #     producer.terminate()
-    #     producer.join()
-    #     print("Shutdown complete.")
-
 
     try:
         run_visualization(q_main_1, cfg_radar, cfg_cfar, stop_event)

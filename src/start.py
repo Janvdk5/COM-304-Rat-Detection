@@ -1,3 +1,10 @@
+# Info:
+# This script is meant to be a one-click solution to start both the radar pipeline and the GUI. 
+# It also ensures that mmWave Studio is running and has killed any existing instances to avoid conflicts.
+# NB: this is relatively untested and may not work on different platforms.
+# --------------------------------------------
+
+# Imports
 import subprocess
 import sys
 import ctypes
@@ -5,24 +12,14 @@ import os
 import time
 import argparse
 
-
-
-###### USAGE INSTRUCTIONS ######
-# NB: Can comment out mmWave Studio lauching anfd others for ease
-# 1) change envirnonment name to match
-# 2) Opne MMwave Studio
-# 3) python start.py 
-
-
-
-# PARAMS ----------------------------------------
+# Params
 ENV_NAME =      r"C:/Users/janva/anaconda3/envs/comm-proj/python.exe" 
 CONFIG_FILE =   "scripts/config_doppler"  # use dict above to select config
 EXTRA_FLAGS =   ["--config", "--doppler", "--cfar"]
 SRC_DIR = (os.path.dirname(os.getcwd()))
 
 
-# FUNCTIONS -------------------------------------
+# Funcs
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()

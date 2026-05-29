@@ -1,3 +1,10 @@
+# Info:
+# This file contains the main function to start the real-time radar streaming and processing.
+# It reads the radar parameters from a lua config file, sets up the radar and CFAR configurations,
+# then calls the main function of the realtime_streaming module to start the streaming and processing.
+# NB: we recommend to run this file directly after configuring radar using configure.py
+# -------------------------------------
+
 import os
 import sys
 import argparse
@@ -10,12 +17,17 @@ import utils.utility as utility
 
 from streaming_base.streaming import realtime_streaming
 
-
 current_dir = (os.path.dirname(os.getcwd())) # one level up for this repo
 
 def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False):
     """
     Main function to start the real-time radar streaming and processing.
+
+    Args:
+        cfar_on (bool): Whether to apply CFAR detection.
+        exp_name (str): Base filename for saved raw data.
+        save_raw_dt (bool): Whether to save the real-time captured raw data.
+        doppler (bool): Whether to include Doppler processing.
     """
 
     # Parameters for the range-azimuth beamforming.
@@ -26,7 +38,6 @@ def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False):
     width =  len(r_idxs) # azimuth width in degrees
 
     # Radar  parameters
-
     cfg_radar = {
         "range_idx": r_idxs,
         "phi": phi,
@@ -64,8 +75,6 @@ def main(cfar_on, exp_name="test", save_raw_dt=False, doppler=False):
     realtime_streaming.main(cfg_radar, cfg_cfar)
 
 if __name__ == "__main__":
-
-
     #   PARSER --------------------------------------------------------------------------------------------------------
     parser = argparse.ArgumentParser(description="Example script with command line arguments.")
 

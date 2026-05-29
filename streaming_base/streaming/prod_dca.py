@@ -1,3 +1,10 @@
+# ---------------
+# Info:
+# This file contains the producer function for real-time data acquisition from the DCA1000 connected to the AWR1843 radar.
+# The producer reads raw ADC data from the DCA1000, processes it (including optional background subtraction and Doppler processing), 
+# and sends the processed data to a queue for consumption by other parts of the system.
+# ----------------------
+
 import numpy as np
 import queue
 import signal
@@ -5,7 +12,7 @@ import time
 from datetime import datetime
 import os
 
-from streaming_base.processing.processing import process_frame, get_accumulated_time_data, process_frame_2d, beamform_2d, get_freq, get_br_hr
+from streaming_base.processing.processing import process_frame_2d, beamform_2d
 
 
 from streaming_base.utils.utils import get_ant_pos_2d 
@@ -170,14 +177,6 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
             last_frames[:-1] = last_frames[1:]
             last_frames[-1] = range_fft_s
 
-            # Compute CFAR
-            # if cfg_cfar['before_bf'] == 2:
-            #     dets = process_frame(range_fft_s, cfg_cfar)
-            #     # # Compute beamforming
-            #     bf_output = beamform_2d_s(range_fft_s, cfg_radar, x_locs[:,0], dets)
-            #     dets = process_frame_2d(abs(bf_output), cfg_cfar)
-            #     bf_output = dets
-
 
             if cfg_radar['doppler']:
                 # NOTE : this part was added (Kasper's Doppler Algo)
@@ -190,17 +189,12 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 
                 # Zero-velocity notch: kill bins near DC (the static pipe).
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
-                #each step up kills another 0.14m/s of velocity
-                n_notch = 1                             # ±2 bins of velocity zeroed (tune to taste) 
-
+                n_notch = 1                             # +/-2 bins of velocity zeroed, each step up kills another 0.14m/s of velocity 
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
-
-                # Coherent across antennas: pick the strongest moving velocity bin per range
-                # using power summed across antennas (same velocity bin for all antennas at
-                # each range, so cross-antenna phase is preserved for beamforming).
+.
                 power = np.sum(np.abs(doppler), axis=0)            # (N_CHIRPS, range_bins)
 
-                # try SNR threshold
+                # SNR threshold
                 energy = np.sum(np.abs(doppler)**2, axis=0)
                 snr = energy / (np.median(energy) + 1e-6)
                 valid = snr > 2.0
@@ -209,31 +203,17 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 r_idx = np.arange(doppler.shape[2])
                 bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
 
-                # Noise mask: only keep range bins whose peak moving-power exceeds an
-                # adaptive noise floor. Without this, every empty range bin still picks
-                # *some* argmax velocity (just noise) and gets beamformed to a random angle,
-                # producing scattered speckle across the whole heatmap.
+                # Noise mask: only keep range bins whose peak moving-power exceeds a thesh to kill clutter
                 peak_power = power[best_vel, r_idx]                # (range_bins,)
                 noise_floor = np.median(peak_power) * 5.0          # 5x median (tune: 2–5)//each step up kills 0.14m/s of velocity
                 mask = peak_power > noise_floor                    # (range_bins,) bool
                 bf_input = bf_input * mask[np.newaxis, :]
 
             else:
-                # With bg_sub on (kills static clutter), we want the MOST RECENT
-                # bg-subtracted frame so a moving rat shows up as a sharp blob
-                # at its current position rather than a smear across the last
-                # ~0.5 s of motion. Use last_frames[-1] not np.mean(last_frames).
-                # (If you turn bg_sub OFF and want temporal smoothing back,
-                #  swap this for: bf_input = np.mean(last_frames, axis=0))
-                # Coherent average of the last 2 bg-subtracted frames: small
-                # SNR boost without smearing motion much. Stays complex so the
-                # downstream beamformer's phase math still works.
                 bf_input = np.mean(last_frames[-2:], axis=0)
-
 
             bf_output = beamform_2d(bf_input.squeeze(), cfg_radar, x_locs[:,0])
             
-
             max_output = abs(bf_output).max()
             if not np.isfinite(max_output) or max_output <= 0.0:
                 max_output = 1.0

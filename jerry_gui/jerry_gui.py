@@ -1,3 +1,10 @@
+# Info:
+# This file is used to activate the jerry_gui html page in templates/
+# It uses Flask to serve the page and provide endpoints to fetch events and signal data from the log files in src/logs
+# NB: run this file and then open http://localhost:5000 in your browser to see the GUI
+# -------------------------------------
+
+
 import flask as fk
 import sys, os
 import json

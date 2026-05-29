@@ -1,3 +1,8 @@
+# Info:
+# This file updates the lua config files with the correct COM port and RTT path for the current system
+# NB: run this before running realtime.py
+# -------------------------------
+
 import os
 import argparse
 import sys
