@@ -187,7 +187,7 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 N_CHIRPS = current.shape[1]                # e.g. 32
                 doppler = np.fft.fftshift(np.fft.fft(current, n=N_CHIRPS, axis=1), axes=1) # (num_ant, N_CHIRPS, range_bins)
                 
-                # Zero-velocity notch: kill bins near DC (the static pipe).
+                # Zero-velocity notch: kill static bins 
                 mid = N_CHIRPS // 2                        # bin 16 == zero velocity
                 n_notch = 1                             # +/-2 bins of velocity zeroed, each step up kills another 0.14m/s of velocity 
                 doppler[:, mid-n_notch:mid+n_notch+1, :] = 0
@@ -203,9 +203,9 @@ def producer_real_time_1843(q, cfg_radar, cfg_cfar, config_port, data_port, stat
                 r_idx = np.arange(doppler.shape[2])
                 bf_input = doppler[:, best_vel, r_idx]             # (num_ant, range_bins) COMPLEX
 
-                # Noise mask: only keep range bins whose peak moving-power exceeds a thesh to kill clutter
+                # Noise mask: only keep range bins whose peak moving-power exceeds a thresh to kill clutter
                 peak_power = power[best_vel, r_idx]                # (range_bins,)
-                noise_floor = np.median(peak_power) * 5.0          # 5x median (tune: 2–5)//each step up kills 0.14m/s of velocity
+                noise_floor = np.median(peak_power) * 5.0          # 5x median (tune: 2–5)
                 mask = peak_power > noise_floor                    # (range_bins,) bool
                 bf_input = bf_input * mask[np.newaxis, :]
 
